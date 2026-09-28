@@ -346,6 +346,33 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 .race-card.lap-color-4{background:#e9fbf4;border-color:#5ac99a}
 .race-card.lap-color-5{background:#fff0e3;border-color:#f3a35c}
 
+
+/* ===== Ajustements v5 ===== */
+.timer-controls{
+  margin:14px 0 22px !important;
+}
+
+
+.select-name small{
+  display:block;
+  margin-top:2px;
+  color:var(--mut);
+  font-size:11px;
+}
+
+
+dialog select{
+  display:block;
+  width:100%;
+  margin-top:6px;
+  padding:14px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:var(--bg);
+  color:var(--tx);
+  font:18px system-ui,sans-serif;
+}
+
 </style>
 </head>
 <body>
@@ -365,7 +392,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60,d=Math.floor(ms%1000/100);return `${pad(m)}:${pad(s)}.${d}`};
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
-function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",selected:s.selected!==false}}
+function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
 function normClass(c){
   const setup=c.setup||{mode:"race",distance:"",distanceUnit:"m",maxLaps:1};
   if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;
@@ -377,7 +404,7 @@ function load(){
   let s=parse(KEY)||parse(BACKUP_KEY);
   if(s)return s;
   for(const k of ["classtimer.v2","classtimer.v1"]){
-    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1},activeSession:null}));return l}
+    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,sex:x.sex||"",selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1},activeSession:null}));return l}
   }
   return{theme:null,classes:[]};
 }
@@ -413,7 +440,7 @@ function homeView(){
 
 function setupView(c){
   if(!c)return homeView();
-  const rows=c.students.map(s=>`<label class="select-student"><input type="checkbox" data-act="selectStu" data-c="${c.id}" data-s="${s.id}" ${s.selected!==false?"checked":""}><span class="select-name"><b>${esc(fullName(s))}</b></span><button type="button" class="mini-btn" data-act="editStu" data-c="${c.id}" data-s="${s.id}">✎</button><button type="button" class="mini-btn" data-act="delStu" data-c="${c.id}" data-s="${s.id}">✕</button></label>`).join("");
+  const rows=c.students.map(s=>`<label class="select-student"><input type="checkbox" data-act="selectStu" data-c="${c.id}" data-s="${s.id}" ${s.selected!==false?"checked":""}><span class="select-name"><b>${esc(fullName(s))}</b><small>${s.sex==="F"?"Femme":s.sex==="H"?"Homme":""}</small></span><button type="button" class="mini-btn" data-act="editStu" data-c="${c.id}" data-s="${s.id}">✎</button><button type="button" class="mini-btn" data-act="delStu" data-c="${c.id}" data-s="${s.id}">✕</button></label>`).join("");
   const n=c.students.filter(s=>s.selected!==false).length;
   return`${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1><span class="badge">${n}/${c.students.length} sélectionnés</span></div>
   <section class="panel"><div class="section-title-row"><h2>Élèves</h2><button class="btn compact" data-act="addStu" data-c="${c.id}">+ Ajouter</button></div><div class="selection-list">${rows||'<div class="empty">Aucun élève.</div>'}</div><div class="selection-actions"><button class="btn compact" data-act="selectAll" data-c="${c.id}">Tout sélectionner</button><button class="btn compact" data-act="selectNone" data-c="${c.id}">Tout décocher</button></div></section>
@@ -430,7 +457,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){const start=p.startedAt||s.startedAt;if(!start)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-start)}
@@ -529,7 +556,7 @@ function timerView(c){
     }
     return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
       <div class="student-number">#${i+1}</div>
-      <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}</small></div>
+      <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}${p.sex?` · ${p.sex}`:""}</small></div>
       <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
       <div class="race-status">${status}</div>
       ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}
@@ -554,8 +581,60 @@ $("app").addEventListener("click",async e=>{
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
-  else if(act==="addStu"){const r=await ask("Ajouter un élève",[{label:"Prénom"},{label:"Nom",opt:true}],"Ajouter");if(r){c.students.push({id:uid(),first:r[0],last:r[1],selected:true});save();render()}}
-  else if(act==="editStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);const r=await ask("Modifier l'élève",[{label:"Prénom",value:s.first},{label:"Nom",value:s.last,opt:true}]);if(r){s.first=r[0];s.last=r[1];save();render()}}
+  else if(act==="addStu"){
+    const r=await show(`<form method="dialog">
+      <h2>Ajouter un élève</h2>
+      <label>Prénom<input name="first" required></label>
+      <label>Nom<input name="last"></label>
+      <label>Sexe
+        <select name="sex" required>
+          <option value="">Choisir</option>
+          <option value="F">Femme</option>
+          <option value="H">Homme</option>
+        </select>
+      </label>
+      <div class="row">
+        <button value="cancel" class="btn">Annuler</button>
+        <button value="ok" class="btn pri">Ajouter</button>
+      </div>
+    </form>`);
+    if(r.v==="ok"){
+      c.students.push({
+        id:uid(),
+        first:(r.f.get("first")||"").trim(),
+        last:(r.f.get("last")||"").trim(),
+        sex:r.f.get("sex")||"",
+        selected:true
+      });
+      save();render();
+    }
+  }
+  else if(act==="editStu"){
+    e.stopPropagation();
+    const s=c.students.find(x=>x.id===b.dataset.s);
+    const r=await show(`<form method="dialog">
+      <h2>Modifier l'élève</h2>
+      <label>Prénom<input name="first" value="${esc(s.first)}" required></label>
+      <label>Nom<input name="last" value="${esc(s.last)}"></label>
+      <label>Sexe
+        <select name="sex" required>
+          <option value="">Choisir</option>
+          <option value="F" ${s.sex==="F"?"selected":""}>Femme</option>
+          <option value="H" ${s.sex==="H"?"selected":""}>Homme</option>
+        </select>
+      </label>
+      <div class="row">
+        <button value="cancel" class="btn">Annuler</button>
+        <button value="ok" class="btn pri">Enregistrer</button>
+      </div>
+    </form>`);
+    if(r.v==="ok"){
+      s.first=(r.f.get("first")||"").trim();
+      s.last=(r.f.get("last")||"").trim();
+      s.sex=r.f.get("sex")||"";
+      save();render();
+    }
+  }
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
@@ -572,9 +651,97 @@ $("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){cons
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
-  const rows=[["Classe","Date","Mode","Distance","Unité","Tours prévus","Prénom","Nom","Temps total","Tour","Temps tour","Temps cumulé"]];
-  s.participants.forEach(p=>{if(s.mode==="race"){rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,"",p.first,p.last,fmt(p.elapsedMs||sessionElapsed(s,p)),"","",""])}else if(p.laps.length){p.laps.forEach(l=>rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,s.maxLaps||"",p.first,p.last,fmt(l.totalTimeMs),l.n,fmt(l.lapTimeMs),fmt(l.totalTimeMs)]))}else rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,s.maxLaps||"",p.first,p.last,"",0,"",""])});
-  const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n"),url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");a.href=url;a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+  let rows=[];
+
+  if(s.mode==="race"){
+    rows=[[
+      "Classe",
+      "Date",
+      "Mode",
+      "Distance",
+      "Unité",
+      "Prénom",
+      "Nom",
+      "Temps total"
+    ]];
+
+    s.participants.forEach(p=>{
+      rows.push([
+        c.name,
+        dateFR(p.startedAt||s.startedAt||s.createdAt),
+        "Course",
+        s.distance,
+        s.distanceUnit,
+        p.first,
+        p.last,
+        p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",
+        fmt(p.elapsedMs||sessionElapsed(s,p))
+      ]);
+    });
+  }else{
+    const maxLaps=Math.max(
+      1,
+      parseInt(
+        s.maxLaps ||
+        Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),
+        10
+      )
+    );
+
+    const header=[
+      "Classe",
+      "Date",
+      "Mode",
+      "Distance",
+      "Unité",
+      "Prénom",
+      "Nom"
+    ];
+
+    for(let i=1;i<=maxLaps;i++){
+      header.push(`Tour ${i}`);
+    }
+
+    header.push("Temps total");
+    rows=[header];
+
+    s.participants.forEach(p=>{
+      const line=[
+        c.name,
+        dateFR(p.startedAt||s.startedAt||s.createdAt),
+        "Tours",
+        s.distance,
+        s.distanceUnit,
+        p.first,
+        p.last,
+        p.sex==="F"?"Femme":p.sex==="H"?"Homme":""
+      ];
+
+      for(let i=0;i<maxLaps;i++){
+        const lap=(p.laps||[])[i];
+        line.push(lap?fmt(lap.lapTimeMs):"");
+      }
+
+      const total=p.elapsedMs || (
+        p.finishedAt && p.startedAt
+          ? Math.max(0,p.finishedAt-p.startedAt)
+          : sessionElapsed(s,p)
+      );
+
+      line.push(total?fmt(total):"");
+      rows.push(line);
+    });
+  }
+
+  const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
