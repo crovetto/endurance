@@ -449,10 +449,29 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60,d=Math.floor(ms%1000/100);return `${pad(m)}:${pad(s)}.${d}`};
 const fmtSigned=ms=>{
   const sign=ms>0?"+":ms<0?"-":"±";
-  
-const lapPointsFromDiffMs=ms=>{const x=Math.abs(Number(ms)||0)/1000;if(x<2)return 10;if(x<3)return 9;if(x<4)return 8;if(x<5)return 7;if(x<6)return 6;if(x<7)return 5;if(x<8)return 4;if(x<9)return 3;if(x<10)return 2;if(x<11)return 1;return 0};
-const averageLapMs=p=>{const a=(p.laps||[]).map(l=>Number(l.lapTimeMs)).filter(v=>Number.isFinite(v)&&v>=0);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0};
-return sign+fmt(Math.abs(ms));
+  return sign+fmt(Math.abs(ms));
+};
+
+const lapPointsFromDiffMs=ms=>{
+  const x=Math.abs(Number(ms)||0)/1000;
+  if(x<2)return 10;
+  if(x<3)return 9;
+  if(x<4)return 8;
+  if(x<5)return 7;
+  if(x<6)return 6;
+  if(x<7)return 5;
+  if(x<8)return 4;
+  if(x<9)return 3;
+  if(x<10)return 2;
+  if(x<11)return 1;
+  return 0;
+};
+
+const averageLapMs=p=>{
+  const a=(p.laps||[])
+    .map(l=>Number(l.lapTimeMs))
+    .filter(v=>Number.isFinite(v)&&v>=0);
+  return a.length?a.reduce((x,y)=>x+y,0)/a.length:0;
 };
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
