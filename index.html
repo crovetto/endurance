@@ -505,7 +505,6 @@ function setupView(c){
   <section class="panel">
     <div class="section-title-row">
       <h2>Séances enregistrées</h2>
-      <button class="btn compact" data-act="newSessionFromSetup" data-c="${c.id}">+ Ajouter une séance</button>
     </div>
 
     <div class="sessions-list">
@@ -717,11 +716,6 @@ $("app").addEventListener("click",async e=>{
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
   else if(act==="newSession"){c.activeSession=null;save();location.hash=`#/setup/${c.id}`}
-  else if(act==="newSessionFromSetup"){
-    c.activeSession=null;
-    save();
-    render();
-  }
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
     const sess=c.history[idx];
