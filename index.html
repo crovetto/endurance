@@ -278,6 +278,74 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 @media(max-width:430px){#app{padding-left:8px;padding-right:8px}.race-grid{gap:5px}.race-card{border-radius:10px;padding:7px 3px 5px}.mode-switch{grid-template-columns:1fr}}
 @media(min-width:700px){.race-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
 
+
+/* ===== Tours v3 ===== */
+.laps-settings{
+  margin-top:12px;
+}
+.laps-settings label span{
+  display:block;
+  margin-bottom:6px;
+  font-size:13px;
+  font-weight:700;
+}
+.laps-settings input{
+  width:100%;
+  height:48px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 12px;
+  font:inherit;
+}
+
+.race-card.waiting{
+  background:#eaf4ff;
+  border-color:#9cc9f8;
+}
+
+.race-card.active-runner{
+  background:#fff7d6;
+  border-color:#f4c84e;
+}
+
+.race-card.lap-done{
+  animation:lapFlash .38s ease;
+}
+
+.race-card.finished{
+  background:#effbf1 !important;
+  border-color:#75d48a !important;
+}
+
+@keyframes lapFlash{
+  0%{transform:scale(1)}
+  45%{transform:scale(.94)}
+  100%{transform:scale(1)}
+}
+
+.progress-laps{
+  margin-top:3px;
+  font-size:8px;
+  font-weight:700;
+  color:var(--tx);
+}
+
+.race-card.finished .race-status{
+  color:var(--ontx);
+  font-weight:700;
+}
+
+
+/* ===== Couleur différente à chaque tour ===== */
+.race-card.lap-color-0{background:#fff7d6;border-color:#f4c84e}
+.race-card.lap-color-1{background:#e8f4ff;border-color:#69aef7}
+.race-card.lap-color-2{background:#f3eaff;border-color:#a67cf0}
+.race-card.lap-color-3{background:#ffe9f1;border-color:#ed7fa6}
+.race-card.lap-color-4{background:#e9fbf4;border-color:#5ac99a}
+.race-card.lap-color-5{background:#fff0e3;border-color:#f3a35c}
+
 </style>
 </head>
 <body>
@@ -298,14 +366,18 @@ const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.f
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",selected:s.selected!==false}}
-function normClass(c){return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup:c.setup||{mode:"race",distance:"",distanceUnit:"m"},activeSession:c.activeSession||null}}
+function normClass(c){
+  const setup=c.setup||{mode:"race",distance:"",distanceUnit:"m",maxLaps:1};
+  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;
+  return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup,activeSession:c.activeSession||null}
+}
 function normState(s){if(!s||!Array.isArray(s.classes))return null;s.classes=s.classes.map(normClass);return s}
 function parse(k){try{const r=localStorage.getItem(k);return r?normState(JSON.parse(r)):null}catch(e){return null}}
 function load(){
   let s=parse(KEY)||parse(BACKUP_KEY);
   if(s)return s;
   for(const k of ["classtimer.v2","classtimer.v1"]){
-    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m"},activeSession:null}));return l}
+    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1},activeSession:null}));return l}
   }
   return{theme:null,classes:[]};
 }
@@ -348,7 +420,9 @@ function setupView(c){
   <section class="panel"><h2>Type de chrono</h2><div class="mode-switch">
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
   <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label></div>
-  <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div></section>
+  <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
+  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}
+  </section>
   <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Continuer vers le chrono</button>`;
 }
 
@@ -356,29 +430,114 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
   save(); return c.activeSession;
 }
-function sessionElapsed(s,p){if(!s.startedAt)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-s.startedAt)}
-function startAll(c){const s=c.activeSession;if(!s||s.status!=="ready")return;const now=Date.now();s.startedAt=now;s.status="running";s.participants.forEach(p=>p.lastLapAt=now);save();render()}
+function sessionElapsed(s,p){const start=p.startedAt||s.startedAt;if(!start)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-start)}
+function startAll(c){
+  const s=c.activeSession;if(!s||s.status==="finished")return;
+  const now=Date.now();
+  if(!s.startedAt)s.startedAt=now;
+  s.status="running";
+  s.participants.forEach(p=>{
+    if(!p.startedAt&&!p.finishedAt){
+      p.startedAt=now;
+      p.lastLapAt=now;
+    }
+  });
+  save();render();
+}
+
+function startParticipant(c,p){
+  const s=c.activeSession;if(!s||s.status==="finished"||p.finishedAt||p.startedAt)return;
+  const now=Date.now();
+  p.startedAt=now;
+  p.lastLapAt=now;
+  if(!s.startedAt)s.startedAt=now;
+  s.status="running";
+  save();render();
+}
 function tapParticipant(c,p){
-  const s=c.activeSession;if(!s||s.status!=="running")return;const now=Date.now();
-  if(s.mode==="race"){if(p.finishedAt)return;p.finishedAt=now;p.elapsedMs=now-s.startedAt;if(s.participants.every(x=>x.finishedAt))finishSession(c);else{save();render()}}
-  else{const prev=p.lastLapAt||s.startedAt;const lap=now-prev,total=now-s.startedAt;p.laps.push({n:p.laps.length+1,lapTimeMs:lap,totalTimeMs:total,recordedAt:now});p.lastLapAt=now;save();render()}
+  const s=c.activeSession;if(!s||s.status==="finished")return;
+  const now=Date.now();
+
+  // Avant démarrage : toucher une carte démarre uniquement cet élève
+  if(!p.startedAt){
+    startParticipant(c,p);
+    return;
+  }
+
+  if(p.finishedAt)return;
+
+  if(s.mode==="race"){
+    p.finishedAt=now;
+    p.elapsedMs=now-p.startedAt;
+    if(s.participants.every(x=>x.finishedAt))finishSession(c);else{save();render()}
+    return;
+  }
+
+  // Mode tours : un tap = un tour
+  const prev=p.lastLapAt||p.startedAt;
+  const lap=now-prev;
+  const total=now-p.startedAt;
+
+  p.laps.push({
+    n:p.laps.length+1,
+    lapTimeMs:lap,
+    totalTimeMs:total,
+    recordedAt:now
+  });
+
+  p.lastLapAt=now;
+
+  const maxLaps=Math.max(1,parseInt(s.maxLaps||1,10));
+
+  // Fin automatique de l'élève au dernier tour
+  if(p.laps.length>=maxLaps){
+    p.finishedAt=now;
+    p.elapsedMs=total;
+  }
+
+  if(s.participants.every(x=>x.finishedAt)){
+    finishSession(c);
+  }else{
+    save();
+    render();
+  }
 }
 function finishSession(c){
   const s=c.activeSession;if(!s||s.status==="finished")return;const now=Date.now();s.finishedAt=now;s.status="finished";
-  if(s.mode==="race")s.participants.forEach(p=>{if(!p.finishedAt){p.finishedAt=now;p.elapsedMs=now-s.startedAt}});
+  if(s.mode==="race")s.participants.forEach(p=>{if(!p.finishedAt){p.finishedAt=now;p.elapsedMs=p.startedAt?now-p.startedAt:0}});
   c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
 }
 
 function timerView(c){
   if(!c||!c.activeSession)return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c?.id||""}">‹ Réglages</a><div class="empty">Aucune séance préparée.</div>`;
   const s=c.activeSession;
-  const cards=s.participants.map((p,i)=>{const last=p.laps[p.laps.length-1];return`<div class="race-card ${p.finishedAt?"finished":""}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}"><div class="student-number">#${i+1}</div><div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}</small></div><div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div><div class="race-status">${s.mode==="race"?(p.finishedAt?"Terminé":s.status==="running"?"Arrivée":"Prêt"):(s.status==="running"?`${p.laps.length} tour${p.laps.length>1?"s":""}`:"Prêt")}</div>${s.mode==="laps"?`<div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}</div>`}).join("");
-  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1><small>${s.mode==="race"?"Course":"Tours"} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
+  const cards=s.participants.map((p,i)=>{
+    const last=p.laps[p.laps.length-1];
+    const maxLaps=Math.max(1,parseInt(s.maxLaps||1,10));
+    const started=!!p.startedAt;
+    const finished=!!p.finishedAt;
+    const lapColor=(s.mode==="laps"&&started&&!finished)?`lap-color-${p.laps.length%6}`:"";
+    const clsState=finished?"finished":started?(s.mode==="laps"?lapColor:"active-runner"):"waiting";
+    let status="";
+    if(s.mode==="race"){
+      status=finished?"Terminé":started?"Toucher à l'arrivée":"Toucher pour démarrer";
+    }else{
+      status=finished?"Terminé":started?`Tour ${Math.min(p.laps.length+1,maxLaps)} / ${maxLaps}`:"Toucher pour démarrer";
+    }
+    return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
+      <div class="student-number">#${i+1}</div>
+      <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}</small></div>
+      <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
+      <div class="race-status">${status}</div>
+      ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}
+    </div>`
+  }).join("");
+  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1><small>${s.mode==="race"?"Course":`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
-  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Chaque appui sur une carte enregistre un tour et le temps depuis le tour précédent.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
+  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
 }
 function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;const m=$("masterTime");if(m)m.textContent=fmt(s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0);document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
 setInterval(tick,100);
@@ -400,7 +559,7 @@ $("app").addEventListener("click",async e=>{
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
-  else if(act==="prepareSession"){c.setup.distance=($("distanceInput")?.value||"").trim();if(makeSession(c))location.hash=`#/timer/${c.id}`}
+  else if(act==="prepareSession"){c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
@@ -408,13 +567,13 @@ $("app").addEventListener("click",async e=>{
   else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
 });
 
-$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}});
-$("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}});
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
+$("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}});
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
-  const rows=[["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Temps total","Tour","Temps tour","Temps cumulé"]];
-  s.participants.forEach(p=>{if(s.mode==="race"){rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,fmt(p.elapsedMs||sessionElapsed(s,p)),"","",""])}else if(p.laps.length){p.laps.forEach(l=>rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,fmt(l.totalTimeMs),l.n,fmt(l.lapTimeMs),fmt(l.totalTimeMs)]))}else rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,"",0,"",""])});
+  const rows=[["Classe","Date","Mode","Distance","Unité","Tours prévus","Prénom","Nom","Temps total","Tour","Temps tour","Temps cumulé"]];
+  s.participants.forEach(p=>{if(s.mode==="race"){rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,"",p.first,p.last,fmt(p.elapsedMs||sessionElapsed(s,p)),"","",""])}else if(p.laps.length){p.laps.forEach(l=>rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,s.maxLaps||"",p.first,p.last,fmt(l.totalTimeMs),l.n,fmt(l.lapTimeMs),fmt(l.totalTimeMs)]))}else rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,s.maxLaps||"",p.first,p.last,"",0,"",""])});
   const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n"),url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");a.href=url;a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 
