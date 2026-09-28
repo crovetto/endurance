@@ -373,6 +373,50 @@ dialog select{
   font:18px system-ui,sans-serif;
 }
 
+
+/* ===== Séances enregistrées ===== */
+.sessions-list{
+  display:grid;
+  gap:10px;
+  margin-top:10px;
+}
+.session-card{
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--bg);
+}
+.session-card-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.session-card b{
+  display:block;
+}
+.session-card small{
+  display:block;
+  margin-top:3px;
+}
+.session-actions{
+  display:flex;
+  gap:6px;
+  flex:none;
+}
+.session-actions button{
+  min-height:34px;
+  padding:0 10px;
+  border-radius:9px;
+  border:1px solid var(--line);
+  background:var(--card);
+  color:var(--tx);
+  font:600 12px system-ui,sans-serif;
+}
+.session-actions .danger{
+  color:var(--dng);
+}
+
 </style>
 </head>
 <body>
@@ -390,6 +434,10 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const pad=n=>String(n).padStart(2,"0");
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60,d=Math.floor(ms%1000/100);return `${pad(m)}:${pad(s)}.${d}`};
+const fmtSigned=ms=>{
+  const sign=ms>0?"+":ms<0?"-":"±";
+  return sign+fmt(Math.abs(ms));
+};
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
@@ -450,7 +498,33 @@ function setupView(c){
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
   ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}
   </section>
-  <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Continuer vers le chrono</button>`;
+  <div class="bar">
+    <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Ajouter / démarrer une séance</button>
+  </div>
+
+  <section class="panel">
+    <div class="section-title-row">
+      <h2>Séances enregistrées</h2>
+      <button class="btn compact" data-act="newSessionFromSetup" data-c="${c.id}">+ Ajouter une séance</button>
+    </div>
+
+    <div class="sessions-list">
+      ${c.history.length ? c.history.map((sess,idx)=>`
+        <div class="session-card">
+          <div class="session-card-top">
+            <div>
+              <b>${sess.mode==="race"?"Course":"Tours"}${sess.distance?` · ${esc(sess.distance)} ${esc(sess.distanceUnit)}`:""}</b>
+              <small>${dateFR(sess.startedAt||sess.createdAt)} · ${sess.participants.length} élève${sess.participants.length>1?"s":""}${sess.mode==="laps"?` · ${sess.maxLaps||""} tour${(sess.maxLaps||1)>1?"s":""}`:""}</small>
+            </div>
+            <div class="session-actions">
+              <button data-act="csvSavedSession" data-c="${c.id}" data-i="${idx}">CSV</button>
+              <button class="danger" data-act="deleteSavedSession" data-c="${c.id}" data-i="${idx}">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      `).join("") : `<div class="empty">Aucune séance enregistrée pour cette classe.</div>`}
+    </div>
+  </section>`;
 }
 
 function makeSession(c){
@@ -535,7 +609,7 @@ function tapParticipant(c,p){
 function finishSession(c){
   const s=c.activeSession;if(!s||s.status==="finished")return;const now=Date.now();s.finishedAt=now;s.status="finished";
   if(s.mode==="race")s.participants.forEach(p=>{if(!p.finishedAt){p.finishedAt=now;p.elapsedMs=p.startedAt?now-p.startedAt:0}});
-  c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
+  if(!c.history.some(x=>x.id===s.id))c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
 }
 
 function timerView(c){
@@ -643,6 +717,25 @@ $("app").addEventListener("click",async e=>{
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
   else if(act==="newSession"){c.activeSession=null;save();location.hash=`#/setup/${c.id}`}
+  else if(act==="newSessionFromSetup"){
+    c.activeSession=null;
+    save();
+    render();
+  }
+  else if(act==="csvSavedSession"){
+    const idx=parseInt(b.dataset.i,10);
+    const sess=c.history[idx];
+    if(sess)exportSessionCsv(c,sess);
+  }
+  else if(act==="deleteSavedSession"){
+    const idx=parseInt(b.dataset.i,10);
+    const sess=c.history[idx];
+    if(sess&&await confirmBox("Supprimer cette séance enregistrée ?","Supprimer")){
+      c.history.splice(idx,1);
+      save();
+      render();
+    }
+  }
   else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
 });
 
@@ -662,6 +755,7 @@ function exportSessionCsv(c,s){
       "Unité",
       "Prénom",
       "Nom",
+      "Sexe",
       "Temps total"
     ]];
 
@@ -678,6 +772,7 @@ function exportSessionCsv(c,s){
         fmt(p.elapsedMs||sessionElapsed(s,p))
       ]);
     });
+
   }else{
     const maxLaps=Math.max(
       1,
@@ -695,17 +790,30 @@ function exportSessionCsv(c,s){
       "Distance",
       "Unité",
       "Prénom",
-      "Nom"
+      "Nom",
+      "Sexe"
     ];
 
     for(let i=1;i<=maxLaps;i++){
       header.push(`Tour ${i}`);
+      header.push(`Écart Tour ${i} / moyenne`);
     }
 
+    header.push("Moyenne temps au tour");
     header.push("Temps total");
     rows=[header];
 
     s.participants.forEach(p=>{
+      const laps=p.laps||[];
+
+      const validLapTimes=laps
+        .map(l=>Number(l.lapTimeMs))
+        .filter(ms=>Number.isFinite(ms)&&ms>=0);
+
+      const avgLapMs=validLapTimes.length
+        ? validLapTimes.reduce((a,b)=>a+b,0)/validLapTimes.length
+        : 0;
+
       const line=[
         c.name,
         dateFR(p.startedAt||s.startedAt||s.createdAt),
@@ -718,8 +826,15 @@ function exportSessionCsv(c,s){
       ];
 
       for(let i=0;i<maxLaps;i++){
-        const lap=(p.laps||[])[i];
-        line.push(lap?fmt(lap.lapTimeMs):"");
+        const lap=laps[i];
+
+        if(lap){
+          line.push(fmt(lap.lapTimeMs));
+          line.push(fmtSigned(lap.lapTimeMs-avgLapMs));
+        }else{
+          line.push("");
+          line.push("");
+        }
       }
 
       const total=p.elapsedMs || (
@@ -728,7 +843,9 @@ function exportSessionCsv(c,s){
           : sessionElapsed(s,p)
       );
 
+      line.push(validLapTimes.length?fmt(avgLapMs):"");
       line.push(total?fmt(total):"");
+
       rows.push(line);
     });
   }
