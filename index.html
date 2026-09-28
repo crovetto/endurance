@@ -66,6 +66,15 @@ table{width:100%;border-collapse:collapse;margin-top:8px}
 th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
 td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
 .scroll{max-height:50vh;overflow:auto}
+
+/* ===== Sauvegarde / historique ===== */
+.save-state{display:flex;align-items:center;gap:7px;color:var(--mut);font-size:13px;margin:4px 0 10px}
+.save-dot{width:9px;height:9px;border-radius:50%;background:var(--on);flex:none}
+.hist{margin-top:16px}
+.hist-card{padding:14px 16px;background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+.hist-card b{display:block}
+.hist-card small{display:block;margin-top:3px}
+
 </style>
 </head>
 <body>
@@ -74,212 +83,992 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 
 <script>
 "use strict";
+
 /* ============================================================
-   ClassTimer – chronomètre d'élèves (HTML + CSS + JS vanilla)
-   Données : localStorage. Chaque élève = { id, first, last,
-   total (ms cumulées), startedAt (timestamp ou null), sessions }.
-   Le temps affiché = total + (maintenant - startedAt) → fiable
-   même après actualisation ou onglet en arrière-plan.
+   ClassTimer – version robuste locale
+   - Sauvegarde principale + backup dans localStorage
+   - Reprise fiable des chronos actifs après reload/fermeture
+   - Historique par exercice
+   - Export CSV exercice actuel / exercice archivé / historique
    ============================================================ */
 
-/* ---------- Stockage ---------- */
-const KEY = "classtimer.v1";
-let S = load();
+const KEY = "classtimer.v2";
+const BACKUP_KEY = "classtimer.v2.backup";
+const OLD_KEY = "classtimer.v1";
+let lastSavedAt = null;
+
+function defaultState() {
+  return { classes: [], theme: null, version: 2 };
+}
+
+function normaliseState(s) {
+  if (!s || !Array.isArray(s.classes)) return null;
+  s.version = 2;
+
+  s.classes.forEach(c => {
+    c.students = Array.isArray(c.students) ? c.students : [];
+    c.history = Array.isArray(c.history) ? c.history : [];
+    c.currentExerciseStartedAt = c.currentExerciseStartedAt || null;
+
+    c.students.forEach(st => {
+      st.total = Number.isFinite(st.total) ? st.total : 0;
+      st.startedAt = Number.isFinite(st.startedAt) ? st.startedAt : null;
+      st.sessions = Number.isFinite(st.sessions) ? st.sessions : 0;
+      st.lastUpdate = Number.isFinite(st.lastUpdate) ? st.lastUpdate : Date.now();
+    });
+  });
+
+  return s;
+}
+
+function parseStored(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return normaliseState(JSON.parse(raw));
+  } catch (e) {
+    return null;
+  }
+}
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.classes)) return s; } catch (e) {}
-  return { classes: [], theme: null };
+  let s = parseStored(KEY);
+  if (s) return s;
+
+  s = parseStored(BACKUP_KEY);
+  if (s) {
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
+    return s;
+  }
+
+  s = parseStored(OLD_KEY);
+  if (s) {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(s));
+      localStorage.setItem(BACKUP_KEY, JSON.stringify(s));
+    } catch (e) {}
+    return s;
+  }
+
+  return defaultState();
 }
+
+let S = load();
+
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(S)); }
-  catch (e) { alert("Sauvegarde impossible : le stockage du navigateur est indisponible ou plein."); }
+  try {
+    const previous = localStorage.getItem(KEY);
+    if (previous) localStorage.setItem(BACKUP_KEY, previous);
+
+    localStorage.setItem(KEY, JSON.stringify(S));
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(S));
+
+    lastSavedAt = Date.now();
+    updateSaveIndicator();
+    return true;
+  } catch (e) {
+    alert("Sauvegarde impossible : le stockage local du navigateur est indisponible ou plein.");
+    return false;
+  }
 }
 
 /* ---------- Utilitaires ---------- */
 const $ = id => document.getElementById(id);
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
 const pad = n => String(n).padStart(2, "0");
-const fmt = ms => { const s = Math.floor(ms / 1000); return [(s / 3600) | 0, ((s % 3600) / 60) | 0, s % 60].map(pad).join(":"); };
-const elapsed = st => st.total + (st.startedAt ? Math.max(0, Date.now() - st.startedAt) : 0);
-const fullName = st => (st.first + " " + st.last).trim();
-const COLORS = ["#ef4444", "#3987fb", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899"];
-const cls = id => S.classes.find(c => c.id === id);
-const curId = () => { const m = location.hash.match(/^#\/c\/(.+)$/); return m && cls(m[1]) ? m[1] : null; };
 
-/* ---------- Chronomètre ---------- */
-function startSt(st) { if (!st.startedAt) st.startedAt = Date.now(); }
-function stopSt(st) {
-  if (!st.startedAt) return;
-  st.total += Math.max(0, Date.now() - st.startedAt);
-  st.startedAt = null;
-  st.sessions = (st.sessions || 0) + 1;
+const fmt = ms => {
+  const sec = Math.floor(Math.max(0, ms) / 1000);
+  return [(sec / 3600) | 0, ((sec % 3600) / 60) | 0, sec % 60].map(pad).join(":");
+};
+
+const elapsed = st =>
+  st.total + (st.startedAt ? Math.max(0, Date.now() - st.startedAt) : 0);
+
+const fullName = st => (st.first + " " + st.last).trim();
+
+const COLORS = ["#ef4444", "#3987fb", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899"];
+
+const cls = id => S.classes.find(c => c.id === id);
+
+const curId = () => {
+  const m = location.hash.match(/^#\/c\/(.+)$/);
+  return m && cls(m[1]) ? m[1] : null;
+};
+
+const dateFR = ts => new Date(ts).toLocaleString("fr-CH", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit"
+});
+
+function hasExerciseData(c) {
+  return c.students.some(st => elapsed(st) > 0 || (st.sessions || 0) > 0);
 }
 
-/* ---------- Fenêtres (formulaires et confirmations) ---------- */
-// Le bouton principal est le premier du DOM (Entrée = valider) ; "order" l'affiche à droite.
+function touchStudent(st) {
+  st.lastUpdate = Date.now();
+}
+
+function updateSaveIndicator() {
+  const el = $("saveState");
+  if (!el) return;
+
+  el.innerHTML =
+    `<span class="save-dot"></span> Sauvegardé localement${
+      lastSavedAt
+        ? " à " + new Date(lastSavedAt).toLocaleTimeString("fr-CH", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+          })
+        : ""
+    }`;
+}
+
+/* ---------- Chronomètre ---------- */
+function startSt(st, c) {
+  if (st.startedAt) return;
+
+  const now = Date.now();
+  st.startedAt = now;
+  touchStudent(st);
+
+  if (c && !c.currentExerciseStartedAt) {
+    c.currentExerciseStartedAt = now;
+  }
+
+  /* Sauvegarde immédiate du timestamp de départ. */
+  save();
+}
+
+function stopSt(st) {
+  if (!st.startedAt) return;
+
+  const now = Date.now();
+  st.total += Math.max(0, now - st.startedAt);
+  st.startedAt = null;
+  st.sessions = (st.sessions || 0) + 1;
+  st.lastUpdate = now;
+
+  save();
+}
+
+function stopAll(c) {
+  let changed = false;
+
+  c.students.forEach(st => {
+    if (!st.startedAt) return;
+
+    const now = Date.now();
+    st.total += Math.max(0, now - st.startedAt);
+    st.startedAt = null;
+    st.sessions = (st.sessions || 0) + 1;
+    st.lastUpdate = now;
+    changed = true;
+  });
+
+  if (changed) save();
+}
+
+/* ---------- Historique ---------- */
+function archiveCurrentExercise(c) {
+  stopAll(c);
+
+  if (!hasExerciseData(c)) return null;
+
+  const now = Date.now();
+
+  const exercise = {
+    id: uid(),
+    startedAt: c.currentExerciseStartedAt || now,
+    endedAt: now,
+    students: c.students.map(st => ({
+      studentId: st.id,
+      first: st.first,
+      last: st.last,
+      total: Math.max(0, st.total),
+      sessions: st.sessions || 0,
+      lastUpdate: st.lastUpdate || now
+    }))
+  };
+
+  c.history.push(exercise);
+  save();
+
+  return exercise;
+}
+
+function resetCurrentExercise(c) {
+  c.students.forEach(st => {
+    st.total = 0;
+    st.startedAt = null;
+    st.sessions = 0;
+    st.lastUpdate = Date.now();
+  });
+
+  c.currentExerciseStartedAt = null;
+  save();
+}
+
+/* ---------- Dialogs ---------- */
 function show(html) {
   return new Promise(res => {
     const d = $("dlg");
     d.innerHTML = html;
     d.returnValue = "";
+
     d.addEventListener("close", () => {
       const f = d.querySelector("form");
-      res({ v: d.returnValue, f: f ? new FormData(f) : null });
+      res({
+        v: d.returnValue,
+        f: f ? new FormData(f) : null
+      });
     }, { once: true });
+
     d.showModal();
-    const i = d.querySelector("input"); if (i) i.select();
+
+    const i = d.querySelector("input");
+    if (i) i.select();
   });
 }
+
 async function ask(title, fields, ok) {
   const inputs = fields.map((f, i) =>
-    `<label>${esc(f.label)}<input name="f${i}" value="${esc(f.value || "")}" placeholder="${esc(f.ph || "")}" autocomplete="off" ${f.opt ? "" : "required"}></label>`).join("");
-  const r = await show(`<form method="dialog"><h2>${esc(title)}</h2>${inputs}
-    <div class="row"><button value="ok" class="btn pri" style="order:2">${esc(ok || "Enregistrer")}</button>
-    <button value="cancel" class="btn" formnovalidate>Annuler</button></div></form>`);
-  return r.v === "ok" ? fields.map((_, i) => (r.f.get("f" + i) || "").trim()) : null;
+    `<label>${esc(f.label)}
+      <input
+        name="f${i}"
+        value="${esc(f.value || "")}"
+        placeholder="${esc(f.ph || "")}"
+        autocomplete="off"
+        ${f.opt ? "" : "required"}
+      >
+    </label>`
+  ).join("");
+
+  const r = await show(`
+    <form method="dialog">
+      <h2>${esc(title)}</h2>
+      ${inputs}
+      <div class="row">
+        <button value="ok" class="btn pri" style="order:2">
+          ${esc(ok || "Enregistrer")}
+        </button>
+        <button value="cancel" class="btn" formnovalidate>Annuler</button>
+      </div>
+    </form>
+  `);
+
+  return r.v === "ok"
+    ? fields.map((_, i) => (r.f.get("f" + i) || "").trim())
+    : null;
 }
+
 async function confirmBox(msg, label) {
-  const r = await show(`<form method="dialog"><h2>${esc(msg)}</h2>
-    <div class="row"><button value="ok" class="btn pri dng" style="order:2;background:var(--dng);color:#fff;border-color:var(--dng)">${esc(label)}</button>
-    <button value="cancel" class="btn">Annuler</button></div></form>`);
+  const r = await show(`
+    <form method="dialog">
+      <h2>${esc(msg)}</h2>
+      <div class="row">
+        <button
+          value="ok"
+          class="btn pri dng"
+          style="order:2;background:var(--dng);color:#fff;border-color:var(--dng)"
+        >
+          ${esc(label)}
+        </button>
+        <button value="cancel" class="btn">Annuler</button>
+      </div>
+    </form>
+  `);
+
   return r.v === "ok";
 }
 
 /* ---------- Affichage ---------- */
 function applyTheme() {
-  document.documentElement.dataset.theme = S.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme =
+    S.theme ||
+    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
 }
+
 function render() {
   applyTheme();
+
   const id = curId();
   $("app").innerHTML = id ? classView(cls(id)) : homeView();
+
   tick();
+  updateSaveIndicator();
 }
-const topBar = `<div class="top"><span class="brand">⏱ ClassTimer</span><button class="ib" data-act="theme" aria-label="Changer de thème (clair / sombre)">◐</button></div>`;
+
+const topBar = `
+  <div class="top">
+    <span class="brand">⏱ ClassTimer</span>
+    <button class="ib" data-act="theme" aria-label="Changer de thème">◐</button>
+  </div>
+`;
+
+const saveIndicator = `
+  <div class="save-state" id="saveState">
+    <span class="save-dot"></span>
+    Sauvegardé localement
+  </div>
+`;
 
 function homeView() {
   const cards = S.classes.map((c, i) => {
     const run = c.students.filter(s => s.startedAt).length;
-    return `<div class="cc" role="link" tabindex="0" data-act="open" data-c="${c.id}">
-      <span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
-      <div class="grow"><b>${esc(c.name)}</b><small>${c.students.length} élève${c.students.length > 1 ? "s" : ""}${run ? " · " + run + " en cours" : ""}</small></div>
-      <div class="tools"><button class="ib" data-act="renClass" aria-label="Renommer">✎</button> <button class="ib" data-act="delClass" aria-label="Supprimer">✕</button></div></div>`;
+    const hist = c.history.length;
+
+    return `
+      <div class="cc" role="link" tabindex="0" data-act="open" data-c="${c.id}">
+        <span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
+
+        <div class="grow">
+          <b>${esc(c.name)}</b>
+          <small>
+            ${c.students.length} élève${c.students.length > 1 ? "s" : ""}
+            ${run ? " · " + run + " en cours" : ""}
+            ${hist ? " · " + hist + " exercice" + (hist > 1 ? "s" : "") + " archivé" + (hist > 1 ? "s" : "") : ""}
+          </small>
+        </div>
+
+        <div class="tools">
+          <button class="ib" data-act="renClass" aria-label="Renommer">✎</button>
+          <button class="ib" data-act="delClass" aria-label="Supprimer">✕</button>
+        </div>
+      </div>
+    `;
   }).join("");
-  return `${topBar}<h1>Chronomètre élèves</h1>
-    <button class="btn pri big" data-act="addClass">+ Ajouter une classe</button>
-    <div class="grid">${cards || `<div class="empty">Aucune classe pour l'instant.<br>Créez-en une pour ajouter vos élèves.</div>`}</div>`;
+
+  return `
+    ${topBar}
+    ${saveIndicator}
+
+    <h1>Chronomètre élèves</h1>
+
+    <button class="btn pri big" data-act="addClass">
+      + Ajouter une classe
+    </button>
+
+    <div class="grid">
+      ${cards || `
+        <div class="empty">
+          Aucune classe pour l'instant.<br>
+          Créez-en une pour ajouter vos élèves.
+        </div>
+      `}
+    </div>
+  `;
 }
 
 function classView(c) {
   const list = c.students.map(st => {
-    const on = !!st.startedAt, n = st.sessions || 0;
-    return `<div class="stu${on ? " on" : ""}" role="button" tabindex="0" data-act="toggle" data-s="${st.id}" aria-pressed="${on}">
-      <div class="ic">${on ? "■" : "▶"}</div>
-      <div class="nm"><b>${esc(fullName(st))}</b><small>${on ? "Chronomètre en cours" : n + " session" + (n > 1 ? "s" : "")}</small></div>
-      <div class="tm" data-t="${st.id}">00:00:00</div>
-      <div class="tools"><button data-act="editStu" aria-label="Modifier">✎</button><button data-act="resetStu" aria-label="Remettre à zéro">↺</button><button data-act="delStu" aria-label="Supprimer">✕</button></div></div>`;
+    const on = !!st.startedAt;
+    const n = st.sessions || 0;
+
+    return `
+      <div
+        class="stu${on ? " on" : ""}"
+        role="button"
+        tabindex="0"
+        data-act="toggle"
+        data-s="${st.id}"
+        aria-pressed="${on}"
+      >
+        <div class="ic">${on ? "■" : "▶"}</div>
+
+        <div class="nm">
+          <b>${esc(fullName(st))}</b>
+          <small>
+            ${on
+              ? "Chronomètre en cours"
+              : n + " session" + (n > 1 ? "s" : "")
+            }
+          </small>
+        </div>
+
+        <div class="tm" data-t="${st.id}">00:00:00</div>
+
+        <div class="tools">
+          <button data-act="editStu" aria-label="Modifier">✎</button>
+          <button data-act="resetStu" aria-label="Remettre à zéro">↺</button>
+          <button data-act="delStu" aria-label="Supprimer">✕</button>
+        </div>
+      </div>
+    `;
   }).join("");
-  return `${topBar}<a class="back" href="#/">‹ Retour aux classes</a>
-    <div class="head"><h1>${esc(c.name)}</h1><span class="badge" id="badge"></span></div>
-    <div class="bar"><button class="btn pri" data-act="addStu">+ Ajouter un élève</button><button class="btn" data-act="finish">Stopper tous les chronos</button></div>
-    <div class="list">${list || `<div class="empty">Aucun élève dans cette classe.<br>Ajoutez-en un pour démarrer.</div>`}</div>
-    <div class="bar"><button class="btn" data-act="csv">Télécharger le CSV</button><button class="btn dng" data-act="newEx">Nouvel exercice</button></div>`;
+
+  return `
+    ${topBar}
+    ${saveIndicator}
+
+    <a class="back" href="#/">‹ Retour aux classes</a>
+
+    <div class="head">
+      <h1>${esc(c.name)}</h1>
+      <span class="badge" id="badge"></span>
+    </div>
+
+    <div class="bar">
+      <button class="btn pri" data-act="addStu">
+        + Ajouter un élève
+      </button>
+
+      <button class="btn" data-act="finish">
+        Stopper tous les chronos
+      </button>
+    </div>
+
+    <div class="list">
+      ${list || `
+        <div class="empty">
+          Aucun élève dans cette classe.<br>
+          Ajoutez-en un pour démarrer.
+        </div>
+      `}
+    </div>
+
+    <div class="bar">
+      <button class="btn" data-act="csv">CSV exercice actuel</button>
+      <button class="btn" data-act="history">Historique</button>
+      <button class="btn dng" data-act="newEx">Nouvel exercice</button>
+    </div>
+  `;
 }
 
-/* Mise à jour légère des temps (sans reconstruire la page) */
+/* ---------- Tick ---------- */
 function tick() {
   const c = cls(curId());
   if (!c) return;
+
   document.querySelectorAll("[data-t]").forEach(n => {
     const st = c.students.find(s => s.id === n.dataset.t);
     if (st) n.textContent = fmt(elapsed(st));
   });
-  const run = c.students.filter(s => s.startedAt).length, b = $("badge");
-  if (b) { b.textContent = run ? run + " en cours" : "Aucun chrono actif"; b.className = "badge" + (run ? " live" : ""); }
+
+  const run = c.students.filter(s => s.startedAt).length;
+  const b = $("badge");
+
+  if (b) {
+    b.textContent = run ? run + " en cours" : "Aucun chrono actif";
+    b.className = "badge" + (run ? " live" : "");
+  }
 }
+
 setInterval(tick, 250);
-document.addEventListener("visibilitychange", tick);
+
+/* Sauvegardes préventives lorsque la page est quittée/masquée. */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") save();
+  tick();
+});
+
+window.addEventListener("pagehide", save);
+window.addEventListener("beforeunload", save);
 
 /* ---------- Actions ---------- */
-const g = (b, k) => { const n = b.closest("[data-" + k + "]"); return n && n.dataset[k]; };
+const g = (b, k) => {
+  const n = b.closest("[data-" + k + "]");
+  return n && n.dataset[k];
+};
 
 $("app").addEventListener("click", async e => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
-  const act = b.dataset.act, c = cls(g(b, "c") || curId()), st = c && c.students.find(s => s.id === g(b, "s"));
 
-  if (act === "theme") { S.theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; save(); render(); }
-  else if (act === "open") location.hash = "#/c/" + c.id;
+  const act = b.dataset.act;
+  const c = cls(g(b, "c") || curId());
+  const st =
+    c &&
+    c.students.find(s => s.id === g(b, "s"));
+
+  if (act === "theme") {
+    S.theme =
+      document.documentElement.dataset.theme === "dark"
+        ? "light"
+        : "dark";
+
+    save();
+    render();
+  }
+
+  else if (act === "open") {
+    location.hash = "#/c/" + c.id;
+  }
+
   else if (act === "addClass") {
-    const r = await ask("Ajouter une classe", [{ label: "Nom de la classe", ph: "Ex. Classe 1A, Groupe lundi" }], "Créer");
-    if (r) { S.classes.push({ id: uid(), name: r[0], students: [] }); save(); render(); }
+    const r = await ask(
+      "Ajouter une classe",
+      [{ label: "Nom de la classe", ph: "Ex. Classe 1A, Groupe lundi" }],
+      "Créer"
+    );
+
+    if (r) {
+      S.classes.push({
+        id: uid(),
+        name: r[0],
+        students: [],
+        history: [],
+        currentExerciseStartedAt: null
+      });
+
+      save();
+      render();
+    }
   }
+
   else if (act === "renClass") {
-    const r = await ask("Renommer la classe", [{ label: "Nom de la classe", value: c.name }]);
-    if (r) { c.name = r[0]; save(); render(); }
+    const r = await ask(
+      "Renommer la classe",
+      [{ label: "Nom de la classe", value: c.name }]
+    );
+
+    if (r) {
+      c.name = r[0];
+      save();
+      render();
+    }
   }
+
   else if (act === "delClass") {
-    if (await confirmBox(`Supprimer « ${c.name} » et ses ${c.students.length} élève(s) ?`, "Supprimer")) {
-      S.classes = S.classes.filter(x => x !== c); save(); render();
+    if (await confirmBox(
+      `Supprimer « ${c.name} » et toutes ses données, y compris son historique ?`,
+      "Supprimer"
+    )) {
+      S.classes = S.classes.filter(x => x !== c);
+      save();
+      render();
     }
   }
+
   else if (act === "addStu") {
-    const r = await ask("Ajouter un élève", [{ label: "Prénom", ph: "Ex. Alice" }, { label: "Nom", ph: "Ex. Martin", opt: true }], "Ajouter");
-    if (r) { c.students.push({ id: uid(), first: r[0], last: r[1], total: 0, startedAt: null, sessions: 0 }); save(); render(); }
+    const r = await ask(
+      "Ajouter un élève",
+      [
+        { label: "Prénom", ph: "Ex. Alice" },
+        { label: "Nom", ph: "Ex. Martin", opt: true }
+      ],
+      "Ajouter"
+    );
+
+    if (r) {
+      c.students.push({
+        id: uid(),
+        first: r[0],
+        last: r[1],
+        total: 0,
+        startedAt: null,
+        sessions: 0,
+        lastUpdate: Date.now()
+      });
+
+      save();
+      render();
+    }
   }
+
   else if (act === "editStu") {
-    const r = await ask("Modifier l'élève", [{ label: "Prénom", value: st.first }, { label: "Nom", value: st.last, opt: true }]);
-    if (r) { st.first = r[0]; st.last = r[1]; save(); render(); }
+    const r = await ask(
+      "Modifier l'élève",
+      [
+        { label: "Prénom", value: st.first },
+        { label: "Nom", value: st.last, opt: true }
+      ]
+    );
+
+    if (r) {
+      st.first = r[0];
+      st.last = r[1];
+      touchStudent(st);
+
+      save();
+      render();
+    }
   }
+
   else if (act === "delStu") {
-    if (await confirmBox(`Supprimer ${fullName(st)} ?`, "Supprimer")) { c.students = c.students.filter(x => x !== st); save(); render(); }
+    if (await confirmBox(
+      `Supprimer ${fullName(st)} de la classe ? Les résultats déjà archivés resteront dans l'historique.`,
+      "Supprimer"
+    )) {
+      c.students = c.students.filter(x => x !== st);
+
+      save();
+      render();
+    }
   }
+
   else if (act === "resetStu") {
-    if (await confirmBox(`Remettre à zéro le temps de ${fullName(st)} ?`, "Remettre à zéro")) {
-      st.total = 0; st.startedAt = null; st.sessions = 0; save(); render();
+    if (await confirmBox(
+      `Remettre à zéro le temps ACTUEL de ${fullName(st)} ? Cette remise à zéro individuelle n'est pas archivée automatiquement.`,
+      "Remettre à zéro"
+    )) {
+      st.total = 0;
+      st.startedAt = null;
+      st.sessions = 0;
+      touchStudent(st);
+
+      save();
+      render();
     }
   }
-  else if (act === "toggle") { st.startedAt ? stopSt(st) : startSt(st); save(); render(); }
+
+  else if (act === "toggle") {
+    if (st.startedAt) {
+      stopSt(st);
+    } else {
+      startSt(st, c);
+    }
+
+    render();
+  }
+
   else if (act === "finish") {
-    c.students.forEach(stopSt); save(); render();
-    const rows = c.students.map(s => `<tr><td>${esc(s.first)}</td><td>${esc(s.last)}</td><td>${fmt(elapsed(s))}</td></tr>`).join("");
-    const r = await show(`<form method="dialog"><h2>Exercice terminé – ${esc(c.name)}</h2>
-      <div class="scroll"><table><tr><th>Prénom</th><th>Nom</th><th>Temps</th></tr>${rows || `<tr><td colspan="3">Aucun élève.</td></tr>`}</table></div>
-      <div class="row"><button value="csv" class="btn pri" style="order:2">Télécharger le CSV</button><button value="close" class="btn">Fermer</button></div></form>`);
-    if (r.v === "csv") exportCsv(c);
+    stopAll(c);
+    save();
+    render();
+
+    const rows = c.students.map(s => `
+      <tr>
+        <td>${esc(s.first)}</td>
+        <td>${esc(s.last)}</td>
+        <td>${fmt(elapsed(s))}</td>
+      </tr>
+    `).join("");
+
+    const r = await show(`
+      <form method="dialog">
+        <h2>Chronos stoppés – ${esc(c.name)}</h2>
+
+        <p>
+          <small>
+            Les résultats restent sauvegardés localement.
+            Utilisez « Nouvel exercice » pour les archiver puis repartir à zéro.
+          </small>
+        </p>
+
+        <div class="scroll">
+          <table>
+            <tr>
+              <th>Prénom</th>
+              <th>Nom</th>
+              <th>Temps</th>
+            </tr>
+
+            ${rows || `
+              <tr>
+                <td colspan="3">Aucun élève.</td>
+              </tr>
+            `}
+          </table>
+        </div>
+
+        <div class="row">
+          <button value="csv" class="btn pri" style="order:2">
+            Télécharger le CSV
+          </button>
+          <button value="close" class="btn">Fermer</button>
+        </div>
+      </form>
+    `);
+
+    if (r.v === "csv") exportCurrentCsv(c);
   }
-  else if (act === "csv") exportCsv(c);
+
+  else if (act === "csv") {
+    exportCurrentCsv(c);
+  }
+
+  else if (act === "history") {
+    showHistory(c);
+  }
+
   else if (act === "newEx") {
-    if (await confirmBox("Remettre tous les chronomètres de cette classe à zéro ? Les élèves sont conservés.", "Nouvel exercice")) {
-      c.students.forEach(s => { s.total = 0; s.startedAt = null; s.sessions = 0; }); save(); render();
+    const hasData = hasExerciseData(c);
+
+    const msg = hasData
+      ? "Créer un nouvel exercice ? Les temps actuels seront d'abord archivés dans l'historique, puis remis à zéro."
+      : "Créer un nouvel exercice ? Les chronomètres actuels seront remis à zéro.";
+
+    if (await confirmBox(msg, "Nouvel exercice")) {
+      if (hasData) archiveCurrentExercise(c);
+
+      resetCurrentExercise(c);
+      render();
     }
   }
 });
 
-// Clavier : Entrée / Espace sur une carte
+/* Clavier */
 $("app").addEventListener("keydown", e => {
-  if (e.target.matches("[role][data-act]") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); e.target.click(); }
+  if (
+    e.target.matches("[role][data-act]") &&
+    (e.key === "Enter" || e.key === " ")
+  ) {
+    e.preventDefault();
+    e.target.click();
+  }
 });
 
-/* ---------- Export CSV (UTF-8 avec BOM, séparateur « ; » pour Excel FR) ---------- */
-function exportCsv(c) {
-  const d = new Date(), iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, fr = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
-  // Protège les champs (guillemets, ;) et évite l'exécution de formules dans Excel
-  const q = v => { v = String(v); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[;"\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const rows = [["Classe", "Prénom", "Nom", "Temps total secondes", "Temps total", "Date", "Sessions"]];
-  c.students.forEach(s => { const ms = elapsed(s); rows.push([c.name, s.first, s.last, Math.floor(ms / 1000), fmt(ms), fr, s.sessions || 0]); });
-  const text = "\uFEFF" + rows.map(r => r.map(q).join(";")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+/* ---------- Historique UI ---------- */
+async function showHistory(c) {
+  const h = c.history.slice().reverse();
+
+  const cards = h.map((ex, index) => {
+    const originalIndex = c.history.length - 1 - index;
+
+    const rows = ex.students.map(s => `
+      <tr>
+        <td>${esc(s.first)}</td>
+        <td>${esc(s.last)}</td>
+        <td>${fmt(s.total)}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <div class="hist-card">
+        <b>Exercice du ${esc(dateFR(ex.endedAt))}</b>
+
+        <small>
+          Début : ${esc(dateFR(ex.startedAt))}
+          · ${ex.students.length} élève(s)
+        </small>
+
+        <div class="scroll">
+          <table>
+            <tr>
+              <th>Prénom</th>
+              <th>Nom</th>
+              <th>Temps</th>
+            </tr>
+            ${rows}
+          </table>
+        </div>
+
+        <div class="row">
+          <button
+            type="button"
+            class="btn"
+            data-hist-index="${originalIndex}"
+          >
+            CSV de cet exercice
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const r = await show(`
+    <form method="dialog">
+      <h2>Historique – ${esc(c.name)}</h2>
+
+      <div class="scroll hist">
+        ${cards || `
+          <div class="empty">
+            Aucun exercice archivé pour l'instant.
+          </div>
+        `}
+      </div>
+
+      <div class="row">
+        ${h.length ? `
+          <button value="allcsv" class="btn pri" style="order:2">
+            CSV historique complet
+          </button>
+        ` : ""}
+
+        <button value="close" class="btn">Fermer</button>
+      </div>
+    </form>
+  `);
+
+  if (r.v === "allcsv") {
+    exportHistoryCsv(c);
+  }
+}
+
+$("dlg").addEventListener("click", e => {
+  const b = e.target.closest("[data-hist-index]");
+  if (!b) return;
+
+  const c = cls(curId());
+  if (!c) return;
+
+  const ex = c.history[Number(b.dataset.histIndex)];
+
+  if (ex) {
+    exportOneHistoryCsv(c, ex);
+  }
+});
+
+/* ---------- CSV ---------- */
+function csvQuote(v) {
+  v = String(v ?? "");
+
+  if (/^[=+\-@]/.test(v)) {
+    v = "'" + v;
+  }
+
+  return /[;"\r\n]/.test(v)
+    ? '"' + v.replace(/"/g, '""') + '"'
+    : v;
+}
+
+function downloadCsv(rows, filename) {
+  const text =
+    "\uFEFF" +
+    rows.map(r => r.map(csvQuote).join(";")).join("\r\n");
+
+  const url = URL.createObjectURL(
+    new Blob([text], { type: "text/csv;charset=utf-8" })
+  );
+
   const a = document.createElement("a");
-  a.href = url; a.download = `${c.name.replace(/[\\\/:*?"<>|\s]+/g, "_")}_${iso}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
+  a.href = url;
+  a.download = filename;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function safeName(s) {
+  return String(s).replace(/[\\\/:*?"<>|\s]+/g, "_");
+}
+
+function ymd(ts = Date.now()) {
+  const d = new Date(ts);
+
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function exportCurrentCsv(c) {
+  const now = Date.now();
+
+  const rows = [[
+    "Classe",
+    "Prénom",
+    "Nom",
+    "Temps total secondes",
+    "Temps total",
+    "Début exercice",
+    "Export",
+    "Sessions",
+    "Chrono actif",
+    "Dernière mise à jour"
+  ]];
+
+  c.students.forEach(s => {
+    const ms = elapsed(s);
+
+    rows.push([
+      c.name,
+      s.first,
+      s.last,
+      Math.floor(ms / 1000),
+      fmt(ms),
+      c.currentExerciseStartedAt
+        ? dateFR(c.currentExerciseStartedAt)
+        : "",
+      dateFR(now),
+      s.sessions || 0,
+      s.startedAt ? "Oui" : "Non",
+      s.lastUpdate ? dateFR(s.lastUpdate) : ""
+    ]);
+  });
+
+  downloadCsv(
+    rows,
+    `${safeName(c.name)}_exercice_actuel_${ymd(now)}.csv`
+  );
+}
+
+function exportOneHistoryCsv(c, ex) {
+  const rows = [[
+    "Classe",
+    "Exercice ID",
+    "Début exercice",
+    "Fin exercice",
+    "Prénom",
+    "Nom",
+    "Temps total secondes",
+    "Temps total",
+    "Sessions"
+  ]];
+
+  ex.students.forEach(s => {
+    rows.push([
+      c.name,
+      ex.id,
+      dateFR(ex.startedAt),
+      dateFR(ex.endedAt),
+      s.first,
+      s.last,
+      Math.floor(s.total / 1000),
+      fmt(s.total),
+      s.sessions || 0
+    ]);
+  });
+
+  downloadCsv(
+    rows,
+    `${safeName(c.name)}_exercice_${ymd(ex.endedAt)}.csv`
+  );
+}
+
+function exportHistoryCsv(c) {
+  const rows = [[
+    "Classe",
+    "Exercice ID",
+    "Début exercice",
+    "Fin exercice",
+    "Prénom",
+    "Nom",
+    "Temps total secondes",
+    "Temps total",
+    "Sessions"
+  ]];
+
+  c.history.forEach(ex => {
+    ex.students.forEach(s => {
+      rows.push([
+        c.name,
+        ex.id,
+        dateFR(ex.startedAt),
+        dateFR(ex.endedAt),
+        s.first,
+        s.last,
+        Math.floor(s.total / 1000),
+        fmt(s.total),
+        s.sessions || 0
+      ]);
+    });
+  });
+
+  downloadCsv(
+    rows,
+    `${safeName(c.name)}_historique_complet_${ymd()}.csv`
+  );
 }
 
 /* ---------- Démarrage ---------- */
 window.addEventListener("hashchange", render);
-window.addEventListener("storage", e => { if (e.key === KEY) { S = load(); render(); } }); // synchro entre onglets
+
+window.addEventListener("storage", e => {
+  if (e.key === KEY) {
+    S = load();
+    render();
+  }
+});
+
 render();
 </script>
 </body>
