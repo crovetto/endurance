@@ -417,6 +417,19 @@ dialog select{
   color:var(--dng);
 }
 
+
+.class-tabs{display:flex;gap:8px;margin:10px 0 14px}
+.class-tabs .btn{flex:1;min-height:44px}
+.class-tabs .active{background:var(--pri);color:#fff;border-color:var(--pri)}
+.results-session{margin:14px 0;padding:14px;background:var(--card);border:1px solid var(--line);border-radius:16px}
+.results-session h2{margin:0 0 4px}.results-session .meta{color:var(--mut);font-size:13px;margin-bottom:12px}
+.results-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.results-table{min-width:820px;width:100%;border-collapse:collapse}
+.results-table th,.results-table td{padding:8px 7px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:13px}
+.results-table th{color:var(--mut);text-align:left}.results-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.score-pill{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--line);font-weight:800}
+.score-good{background:#dcfce7;color:#15803d}.score-mid{background:#fef3c7;color:#92400e}.score-low{background:#fee2e2;color:#b91c1c}
+.result-empty{color:var(--mut);padding:18px 6px}
 </style>
 </head>
 <body>
@@ -436,7 +449,10 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60,d=Math.floor(ms%1000/100);return `${pad(m)}:${pad(s)}.${d}`};
 const fmtSigned=ms=>{
   const sign=ms>0?"+":ms<0?"-":"±";
-  return sign+fmt(Math.abs(ms));
+  
+const lapPointsFromDiffMs=ms=>{const x=Math.abs(Number(ms)||0)/1000;if(x<2)return 10;if(x<3)return 9;if(x<4)return 8;if(x<5)return 7;if(x<6)return 6;if(x<7)return 5;if(x<8)return 4;if(x<9)return 3;if(x<10)return 2;if(x<11)return 1;return 0};
+const averageLapMs=p=>{const a=(p.laps||[]).map(l=>Number(l.lapTimeMs)).filter(v=>Number.isFinite(v)&&v>=0);return a.length?a.reduce((x,y)=>x+y,0)/a.length:0};
+return sign+fmt(Math.abs(ms));
 };
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
@@ -462,7 +478,7 @@ const cls=id=>S.classes.find(c=>c.id===id);
 
 function route(){
   const h=location.hash||"#/"; let m;
-  if((m=h.match(/^#\/setup\/([^/]+)$/)))return{page:"setup",id:m[1]};
+  if((m=h.match(/^#\/setup\/([^/]+)$/)))return{page:"setup",id:m[1]};if((m=h.match(/^#\/results\/([^/]+)$/)))return{page:"results",id:m[1]};
   if((m=h.match(/^#\/timer\/([^/]+)$/)))return{page:"timer",id:m[1]};
   return{page:"home"};
 }
@@ -476,7 +492,7 @@ const saveIndicator=`<div class="save-state" id="saveState"><span class="save-do
 function render(){
   applyTheme(); const r=route(),a=$("app");
   if(r.page==="home")a.innerHTML=homeView();
-  if(r.page==="setup")a.innerHTML=setupView(cls(r.id));
+  if(r.page==="setup")a.innerHTML=setupView(cls(r.id));if(r.page==="results")a.innerHTML=resultsView(cls(r.id));
   if(r.page==="timer")a.innerHTML=timerView(cls(r.id));
   updateSaveIndicator(); tick();
 }
@@ -490,7 +506,7 @@ function setupView(c){
   if(!c)return homeView();
   const rows=c.students.map(s=>`<label class="select-student"><input type="checkbox" data-act="selectStu" data-c="${c.id}" data-s="${s.id}" ${s.selected!==false?"checked":""}><span class="select-name"><b>${esc(fullName(s))}</b><small>${s.sex==="F"?"Femme":s.sex==="H"?"Homme":""}</small></span><button type="button" class="mini-btn" data-act="editStu" data-c="${c.id}" data-s="${s.id}">✎</button><button type="button" class="mini-btn" data-act="delStu" data-c="${c.id}" data-s="${s.id}">✕</button></label>`).join("");
   const n=c.students.filter(s=>s.selected!==false).length;
-  return`${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1><span class="badge">${n}/${c.students.length} sélectionnés</span></div>
+  return`${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1><span class="badge">${n}/${c.students.length} sélectionnés</span></div><div class="class-tabs"><button class="btn active" type="button">Réglages</button><button class="btn" data-act="openResults" data-c="${c.id}" type="button">Résultats</button></div>
   <section class="panel"><div class="section-title-row"><h2>Élèves</h2><button class="btn compact" data-act="addStu" data-c="${c.id}">+ Ajouter</button></div><div class="selection-list">${rows||'<div class="empty">Aucun élève.</div>'}</div><div class="selection-actions"><button class="btn compact" data-act="selectAll" data-c="${c.id}">Tout sélectionner</button><button class="btn compact" data-act="selectNone" data-c="${c.id}">Tout décocher</button></div></section>
   <section class="panel"><h2>Type de chrono</h2><div class="mode-switch">
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
@@ -611,6 +627,30 @@ function finishSession(c){
   if(!c.history.some(x=>x.id===s.id))c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
 }
 
+
+function resultsView(c){
+  if(!c)return homeView();
+  const sessions=(c.history||[]).filter(s=>s.mode==="laps");
+  const blocks=sessions.map((s,si)=>{
+    const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...(s.participants||[]).map(p=>(p.laps||[]).length)),10));
+    let headers="";
+    for(let i=1;i<=maxLaps;i++)headers+=`<th class="num">Tour ${i}</th><th class="num">Écart</th><th class="num">Pts</th>`;
+    const rows=(s.participants||[]).map(p=>{
+      const laps=p.laps||[],avg=averageLapMs(p);let totalPts=0,cells="";
+      for(let i=0;i<maxLaps;i++){
+        const l=laps[i];
+        if(l){const d=(l.lapTimeMs||0)-avg,pts=lapPointsFromDiffMs(d);totalPts+=pts;cells+=`<td class="num">${fmt(l.lapTimeMs)}</td><td class="num">${fmtSigned(d)}</td><td class="num"><b>${pts}</b></td>`}
+        else cells+=`<td class="num">—</td><td class="num">—</td><td class="num">0</td>`;
+      }
+      const total=p.elapsedMs||(p.finishedAt&&p.startedAt?Math.max(0,p.finishedAt-p.startedAt):sessionElapsed(s,p));
+      const maxPts=maxLaps*10,ratio=maxPts?totalPts/maxPts:0,sc=ratio>=.8?"score-good":ratio>=.5?"score-mid":"score-low";
+      return `<tr><td>${esc(p.first)} ${esc(p.last)}</td><td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>${cells}<td class="num"><b>${laps.length?fmt(avg):"—"}</b></td><td class="num">${total?fmt(total):"—"}</td><td class="num"><span class="score-pill ${sc}">${totalPts} / ${maxPts}</span></td></tr>`;
+    }).join("");
+    return `<section class="results-session"><h2>Séance ${sessions.length-si}</h2><div class="meta">${dateFR(s.startedAt||s.createdAt)}${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""} · ${maxLaps} tour${maxLaps>1?"s":""}</div><div class="results-table-wrap"><table class="results-table"><thead><tr><th>Élève</th><th>Sexe</th>${headers}<th class="num">Moyenne</th><th class="num">Temps total</th><th class="num">Note / points</th></tr></thead><tbody>${rows}</tbody></table></div><div class="bar"><button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">Télécharger CSV</button></div></section>`;
+  }).join("");
+  return `${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1></div><div class="class-tabs"><button class="btn" data-act="openSetup" data-c="${c.id}" type="button">Réglages</button><button class="btn active" type="button">Résultats</button></div>${blocks||'<div class="result-empty">Aucun résultat de séance en mode Tours enregistré pour cette classe.</div>'}`;
+}
+
 function timerView(c){
   if(!c||!c.activeSession)return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c?.id||""}">‹ Réglages</a><div class="empty">Aucune séance préparée.</div>`;
   const s=c.activeSession;
@@ -651,6 +691,7 @@ $("app").addEventListener("click",async e=>{
   if(act==="theme"){S.theme=document.documentElement.dataset.theme==="dark"?"light":"dark";save();render()}
   else if(act==="install"){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null}else alert("iPhone/iPad : Safari → Partager → Sur l’écran d’accueil. Android/Chrome : menu → Installer l’application.")}
   else if(act==="openSetup")location.hash=`#/setup/${b.dataset.c}`
+  else if(act==="openResults")location.hash=`#/results/${b.dataset.c}`
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
@@ -739,120 +780,30 @@ $("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){cons
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
   let rows=[];
-
   if(s.mode==="race"){
-    rows=[[
-      "Classe",
-      "Date",
-      "Mode",
-      "Distance",
-      "Unité",
-      "Prénom",
-      "Nom",
-      "Sexe",
-      "Temps total"
-    ]];
-
-    s.participants.forEach(p=>{
-      rows.push([
-        c.name,
-        dateFR(p.startedAt||s.startedAt||s.createdAt),
-        "Course",
-        s.distance,
-        s.distanceUnit,
-        p.first,
-        p.last,
-        p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",
-        fmt(p.elapsedMs||sessionElapsed(s,p))
-      ]);
-    });
-
+    rows=[["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
+    s.participants.forEach(p=>rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
   }else{
-    const maxLaps=Math.max(
-      1,
-      parseInt(
-        s.maxLaps ||
-        Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),
-        10
-      )
-    );
-
-    const header=[
-      "Classe",
-      "Date",
-      "Mode",
-      "Distance",
-      "Unité",
-      "Prénom",
-      "Nom",
-      "Sexe"
-    ];
-
-    for(let i=1;i<=maxLaps;i++){
-      header.push(`Tour ${i}`);
-      header.push(`Écart Tour ${i} / moyenne`);
-    }
-
-    header.push("Moyenne temps au tour");
-    header.push("Temps total");
+    const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),10));
+    const header=["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Sexe"];
+    for(let i=1;i<=maxLaps;i++){header.push(`Tour ${i}`);header.push(`Écart Tour ${i} / moyenne`);header.push(`Points Tour ${i}`)}
+    header.push("Moyenne temps au tour","Temps total","Points totaux","Points maximum");
     rows=[header];
-
     s.participants.forEach(p=>{
-      const laps=p.laps||[];
-
-      const validLapTimes=laps
-        .map(l=>Number(l.lapTimeMs))
-        .filter(ms=>Number.isFinite(ms)&&ms>=0);
-
-      const avgLapMs=validLapTimes.length
-        ? validLapTimes.reduce((a,b)=>a+b,0)/validLapTimes.length
-        : 0;
-
-      const line=[
-        c.name,
-        dateFR(p.startedAt||s.startedAt||s.createdAt),
-        "Tours",
-        s.distance,
-        s.distanceUnit,
-        p.first,
-        p.last,
-        p.sex==="F"?"Femme":p.sex==="H"?"Homme":""
-      ];
-
+      const laps=p.laps||[],avg=averageLapMs(p),line=[c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":""];
+      let totalPts=0;
       for(let i=0;i<maxLaps;i++){
-        const lap=laps[i];
-
-        if(lap){
-          line.push(fmt(lap.lapTimeMs));
-          line.push(fmtSigned(lap.lapTimeMs-avgLapMs));
-        }else{
-          line.push("");
-          line.push("");
-        }
+        const l=laps[i];
+        if(l){const d=(l.lapTimeMs||0)-avg,pts=lapPointsFromDiffMs(d);totalPts+=pts;line.push(fmt(l.lapTimeMs),fmtSigned(d),pts)}
+        else line.push("","",0);
       }
-
-      const total=p.elapsedMs || (
-        p.finishedAt && p.startedAt
-          ? Math.max(0,p.finishedAt-p.startedAt)
-          : sessionElapsed(s,p)
-      );
-
-      line.push(validLapTimes.length?fmt(avgLapMs):"");
-      line.push(total?fmt(total):"");
-
+      const total=p.elapsedMs||(p.finishedAt&&p.startedAt?Math.max(0,p.finishedAt-p.startedAt):sessionElapsed(s,p));
+      line.push(laps.length?fmt(avg):"",total?fmt(total):"",totalPts,maxLaps*10);
       rows.push(line);
     });
   }
-
-  const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n");
-  const url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"}));
-  const a=document.createElement("a");
-  a.href=url;
-  a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n"),url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");
+  a.href=url;a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
