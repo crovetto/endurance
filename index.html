@@ -430,6 +430,26 @@ dialog select{
 .score-pill{display:inline-block;padding:4px 8px;border-radius:999px;background:var(--line);font-weight:800}
 .score-good{background:#dcfce7;color:#15803d}.score-mid{background:#fef3c7;color:#92400e}.score-low{background:#fee2e2;color:#b91c1c}
 .result-empty{color:var(--mut);padding:18px 6px}
+
+.session-name-row{
+  margin:0 0 14px;
+}
+.session-name-row span{
+  display:block;
+  margin-bottom:6px;
+  font-size:13px;
+  font-weight:700;
+}
+.session-name-row input{
+  width:100%;
+  height:48px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 12px;
+  font:inherit;
+}
 </style>
 </head>
 <body>
@@ -478,7 +498,7 @@ const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
 function normClass(c){
   const setup=c.setup||{mode:"race",distance:"",distanceUnit:"m",maxLaps:1};
-  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;
+  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;if(typeof setup.sessionName!=="string")setup.sessionName="";
   return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup,activeSession:c.activeSession||null}
 }
 function normState(s){if(!s||!Array.isArray(s.classes))return null;s.classes=s.classes.map(normClass);return s}
@@ -487,7 +507,7 @@ function load(){
   let s=parse(KEY)||parse(BACKUP_KEY);
   if(s)return s;
   for(const k of ["classtimer.v2","classtimer.v1"]){
-    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,sex:x.sex||"",selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1},activeSession:null}));return l}
+    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,sex:x.sex||"",selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1,sessionName:""},activeSession:null}));return l}
   }
   return{theme:null,classes:[]};
 }
@@ -527,7 +547,14 @@ function setupView(c){
   const n=c.students.filter(s=>s.selected!==false).length;
   return`${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1><span class="badge">${n}/${c.students.length} sélectionnés</span></div><div class="class-tabs"><button class="btn active" type="button">Réglages</button><button class="btn" data-act="openResults" data-c="${c.id}" type="button">Résultats</button></div>
   <section class="panel"><div class="section-title-row"><h2>Élèves</h2><button class="btn compact" data-act="addStu" data-c="${c.id}">+ Ajouter</button></div><div class="selection-list">${rows||'<div class="empty">Aucun élève.</div>'}</div><div class="selection-actions"><button class="btn compact" data-act="selectAll" data-c="${c.id}">Tout sélectionner</button><button class="btn compact" data-act="selectNone" data-c="${c.id}">Tout décocher</button></div></section>
-  <section class="panel"><h2>Type de chrono</h2><div class="mode-switch">
+  <section class="panel">
+  <div class="session-name-row">
+    <label>
+      <span>Nom de la séance</span>
+      <input id="sessionNameInput" type="text" value="${esc(c.setup.sessionName||"")}" placeholder="Ex. Test endurance 1" data-act="sessionName" data-c="${c.id}">
+    </label>
+  </div>
+  <h2>Type de chrono</h2><div class="mode-switch">
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
   <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label></div>
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
@@ -547,7 +574,7 @@ function setupView(c){
         <div class="session-card">
           <div class="session-card-top">
             <div>
-              <b>${sess.mode==="race"?"Course":"Tours"}${sess.distance?` · ${esc(sess.distance)} ${esc(sess.distanceUnit)}`:""}</b>
+              <b>${sess.name?esc(sess.name):(sess.mode==="race"?"Course":"Tours")}</b><small>${sess.mode==="race"?"Course":"Tours"}${sess.distance?` · ${esc(sess.distance)} ${esc(sess.distanceUnit)}`:""}</small>
               <small>${dateFR(sess.startedAt||sess.createdAt)} · ${sess.participants.length} élève${sess.participants.length>1?"s":""}${sess.mode==="laps"?` · ${sess.maxLaps||""} tour${(sess.maxLaps||1)>1?"s":""}`:""}</small>
             </div>
             <div class="session-actions">
@@ -565,7 +592,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){const start=p.startedAt||s.startedAt;if(!start)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-start)}
@@ -665,7 +692,7 @@ function resultsView(c){
       const maxPts=maxLaps*10,ratio=maxPts?totalPts/maxPts:0,sc=ratio>=.8?"score-good":ratio>=.5?"score-mid":"score-low";
       return `<tr><td>${esc(p.first)} ${esc(p.last)}</td><td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>${cells}<td class="num"><b>${laps.length?fmt(avg):"—"}</b></td><td class="num">${total?fmt(total):"—"}</td><td class="num"><span class="score-pill ${sc}">${totalPts} / ${maxPts}</span></td></tr>`;
     }).join("");
-    return `<section class="results-session"><h2>Séance ${sessions.length-si}</h2><div class="meta">${dateFR(s.startedAt||s.createdAt)}${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""} · ${maxLaps} tour${maxLaps>1?"s":""}</div><div class="results-table-wrap"><table class="results-table"><thead><tr><th>Élève</th><th>Sexe</th>${headers}<th class="num">Moyenne</th><th class="num">Temps total</th><th class="num">Note / points</th></tr></thead><tbody>${rows}</tbody></table></div><div class="bar"><button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">Télécharger CSV</button></div></section>`;
+    return `<section class="results-session"><h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2><div class="meta">${dateFR(s.startedAt||s.createdAt)}${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""} · ${maxLaps} tour${maxLaps>1?"s":""}</div><div class="results-table-wrap"><table class="results-table"><thead><tr><th>Élève</th><th>Sexe</th>${headers}<th class="num">Moyenne</th><th class="num">Temps total</th><th class="num">Note / points</th></tr></thead><tbody>${rows}</tbody></table></div><div class="bar"><button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">Télécharger CSV</button></div></section>`;
   }).join("");
   return `${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1></div><div class="class-tabs"><button class="btn" data-act="openSetup" data-c="${c.id}" type="button">Réglages</button><button class="btn active" type="button">Résultats</button></div>${blocks||'<div class="result-empty">Aucun résultat de séance en mode Tours enregistré pour cette classe.</div>'}`;
 }
@@ -694,7 +721,7 @@ function timerView(c){
       ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}
     </div>`
   }).join("");
-  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1><small>${s.mode==="race"?"Course":`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
+  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
   <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
 }
@@ -771,11 +798,11 @@ $("app").addEventListener("click",async e=>{
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
-  else if(act==="prepareSession"){c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
+  else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
-  else if(act==="newSession"){c.activeSession=null;save();location.hash=`#/setup/${c.id}`}
+  else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";save();location.hash=`#/setup/${c.id}`}
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
     const sess=c.history[idx];
@@ -794,22 +821,22 @@ $("app").addEventListener("click",async e=>{
 });
 
 $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
-$("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}});
+$("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}});
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
   let rows=[];
   if(s.mode==="race"){
-    rows=[["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
-    s.participants.forEach(p=>rows.push([c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
+    rows=[["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
+    s.participants.forEach(p=>rows.push([c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
   }else{
     const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),10));
-    const header=["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Sexe"];
+    const header=["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe"];
     for(let i=1;i<=maxLaps;i++){header.push(`Tour ${i}`);header.push(`Écart Tour ${i} / moyenne`);header.push(`Points Tour ${i}`)}
     header.push("Moyenne temps au tour","Temps total","Points totaux","Points maximum");
     rows=[header];
     s.participants.forEach(p=>{
-      const laps=p.laps||[],avg=averageLapMs(p),line=[c.name,dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":""];
+      const laps=p.laps||[],avg=averageLapMs(p),line=[c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":""];
       let totalPts=0;
       for(let i=0;i<maxLaps;i++){
         const l=laps[i];
