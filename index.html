@@ -182,7 +182,7 @@ function classView(c) {
   }).join("");
   return `${topBar}<a class="back" href="#/">‹ Retour aux classes</a>
     <div class="head"><h1>${esc(c.name)}</h1><span class="badge" id="badge"></span></div>
-    <div class="bar"><button class="btn pri" data-act="addStu">+ Ajouter un élève</button><button class="btn" data-act="finish">Terminer l'exercice</button></div>
+    <div class="bar"><button class="btn pri" data-act="addStu">+ Ajouter un élève</button><button class="btn" data-act="finish">Stopper tous les chronos</button></div>
     <div class="list">${list || `<div class="empty">Aucun élève dans cette classe.<br>Ajoutez-en un pour démarrer.</div>`}</div>
     <div class="bar"><button class="btn" data-act="csv">Télécharger le CSV</button><button class="btn dng" data-act="newEx">Nouvel exercice</button></div>`;
 }
