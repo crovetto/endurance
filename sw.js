@@ -1,4 +1,4 @@
-const CACHE_NAME = "classtimer-pwa-v1";
+const CACHE_NAME = "classtimer-pwa-v4";
 const APP_SHELL = [
   "./",
   "./index.html",

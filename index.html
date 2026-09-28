@@ -49,18 +49,25 @@ button:focus-visible,[tabindex]:focus-visible,input:focus-visible{outline:3px so
 .head h1{margin:0}
 .badge{padding:6px 12px;border-radius:99px;background:var(--line);color:var(--mut);font-weight:600;font-size:14px}
 .badge.live{background:var(--on);color:#fff}
-.list{display:grid;gap:12px;margin-top:8px}
-.stu{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 16px;padding:16px 18px;background:var(--card);border:2px solid var(--line);border-radius:20px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
-.stu .ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--line);color:var(--mut);font-size:22px}
-.stu .nm b{font-size:clamp(19px,4.6vw,24px);display:block;overflow-wrap:anywhere}
-.stu .tm{font-size:clamp(24px,7vw,34px);font-weight:700;font-variant-numeric:tabular-nums}
-.stu .tools{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
-.stu .tools button{min-width:44px;height:40px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--mut);font-size:16px;cursor:pointer}
-.stu.on{border-color:var(--on);background:var(--onbg)}
-.stu.on .ic{background:var(--on);color:#fff;animation:pulse 1.4s infinite}
-.stu.on .tm,.stu.on small{color:var(--ontx)}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}100%{box-shadow:0 0 0 16px rgba(34,197,94,0)}}
-@media (prefers-reduced-motion:reduce){.stu.on .ic{animation:none}}
+.list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.stu{position:relative;display:flex;min-height:170px;flex-direction:column;align-items:center;justify-content:center;padding:16px 10px 10px;background:#eef6ff;border:2px solid #b8d8fb;border-radius:16px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;text-align:center;overflow:hidden}
+.stu .num{position:absolute;top:8px;left:10px;font-size:12px;font-weight:700;color:var(--mut)}
+.stu .status-dot{position:absolute;top:10px;right:10px;width:9px;height:9px;border-radius:50%;background:#93c5fd}
+.stu .nm{width:100%;margin-top:8px}
+.stu .nm b{font-size:clamp(18px,4.8vw,22px);line-height:1.12;display:block;overflow-wrap:anywhere}
+.stu .nm small{display:block;margin-top:4px;font-size:12px;color:var(--mut)}
+.stu .tm{margin-top:12px;font-size:clamp(24px,7vw,32px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.stu .tap-hint{margin-top:8px;font-size:12px;color:var(--mut)}
+.stu .tools{width:100%;display:flex;justify-content:center;gap:6px;margin-top:11px;padding-top:9px;border-top:1px solid rgba(100,116,139,.18)}
+.stu .tools button{width:36px;height:32px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.72);color:var(--mut);font-size:14px;cursor:pointer}
+.stu.on{border-color:#86d39d;background:#effbf2}
+.stu.on .status-dot{background:var(--on);box-shadow:0 0 0 5px rgba(34,197,94,.12)}
+.stu.on .tm,.stu.on .tap-hint{color:var(--ontx)}
+:root[data-theme=dark] .stu{background:#12233b;border-color:#31557f}
+:root[data-theme=dark] .stu.on{background:#102d20;border-color:#2f8f51}
+:root[data-theme=dark] .stu .tools button{background:rgba(19,28,46,.72)}
+@media (min-width:680px){.list{grid-template-columns:repeat(3,minmax(0,1fr))}.stu{min-height:185px}}
+@media (max-width:360px){.list{gap:8px}.stu{min-height:160px;padding-left:8px;padding-right:8px}.stu .tm{font-size:23px}}
 
 /* ===== Fenêtres ===== */
 dialog{border:0;border-radius:20px;padding:22px;width:min(440px,92vw);background:var(--card);color:var(--tx);box-shadow:0 20px 60px rgba(0,0,0,.35)}
@@ -87,6 +94,158 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 .install-note{margin-top:7px;font-size:13px;color:var(--mut)}
 .offline-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--line);color:var(--mut);font-size:13px;font-weight:600}
 .offline-badge.ok{background:var(--onbg);color:var(--ontx)}
+
+
+/* ===== Grille compacte type Run Lap Tap ===== */
+.list{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:6px !important;
+  margin-top:10px !important;
+}
+
+.stu{
+  position:relative;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:2px !important;
+  min-width:0 !important;
+  aspect-ratio:1 / 1.05;
+  min-height:0 !important;
+  padding:8px 4px 7px !important;
+  border-radius:12px !important;
+  border:1.5px solid #9cc9f8 !important;
+  background:#eaf4ff !important;
+  text-align:center !important;
+  overflow:hidden;
+}
+
+.stu.on{
+  border-color:#75d48a !important;
+  background:#effbf1 !important;
+}
+
+.stu .ic{
+  display:none !important;
+}
+
+.student-number{
+  position:absolute;
+  top:5px;
+  left:6px;
+  font-size:9px;
+  color:var(--mut);
+  font-weight:700;
+}
+
+.student-more{
+  position:absolute;
+  top:1px;
+  right:3px;
+  width:20px;
+  height:20px;
+  border:0;
+  background:transparent;
+  color:var(--mut);
+  font-size:15px;
+  line-height:18px;
+  padding:0;
+  cursor:pointer;
+  z-index:2;
+}
+
+.stu .nm{
+  width:100%;
+  min-width:0;
+  padding-top:5px;
+}
+
+.stu .nm b{
+  display:block !important;
+  font-size:11px !important;
+  line-height:1.05 !important;
+  font-weight:750 !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.stu .nm small{
+  display:block !important;
+  margin-top:2px;
+  font-size:8.5px !important;
+  line-height:1.05 !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:var(--mut);
+}
+
+.stu .tm{
+  width:100%;
+  margin-top:4px;
+  padding-top:4px;
+  border-top:1px solid rgba(100,116,139,.20);
+  font-size:11px !important;
+  line-height:1 !important;
+  font-weight:800 !important;
+  letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+}
+
+.stu .tools{
+  position:absolute !important;
+  inset:0 !important;
+  display:none !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:3px !important;
+  background:rgba(255,255,255,.94);
+  z-index:3;
+}
+
+.stu.show-tools .tools{
+  display:flex !important;
+}
+
+.stu.show-tools .student-more{
+  display:none !important;
+}
+
+.stu .tools button{
+  width:25px !important;
+  min-width:25px !important;
+  height:25px !important;
+  padding:0 !important;
+  border-radius:7px !important;
+  border:1px solid var(--line) !important;
+  background:var(--card) !important;
+  color:var(--tx) !important;
+  font-size:11px !important;
+}
+
+@media (max-width:430px){
+  #app{
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+  .list{gap:5px !important}
+  .stu{
+    border-radius:10px !important;
+    padding:7px 3px 6px !important;
+  }
+  .stu .nm b{font-size:10.5px !important}
+  .stu .nm small{font-size:8px !important}
+  .stu .tm{font-size:10.5px !important}
+}
+
+@media (min-width:700px){
+  .list{
+    grid-template-columns:repeat(6,minmax(0,1fr)) !important;
+  }
+}
 
 </style>
 </head>
@@ -488,7 +647,7 @@ function homeView() {
 }
 
 function classView(c) {
-  const list = c.students.map(st => {
+  const list = c.students.map((st, index) => {
     const on = !!st.startedAt;
     const n = st.sessions || 0;
 
@@ -501,19 +660,16 @@ function classView(c) {
         data-s="${st.id}"
         aria-pressed="${on}"
       >
-        <div class="ic">${on ? "■" : "▶"}</div>
+        <div class="num">#${index + 1}</div>
+        <span class="status-dot" aria-hidden="true"></span>
 
         <div class="nm">
           <b>${esc(fullName(st))}</b>
-          <small>
-            ${on
-              ? "Chronomètre en cours"
-              : n + " session" + (n > 1 ? "s" : "")
-            }
-          </small>
+          <small>${n} session${n > 1 ? "s" : ""}</small>
         </div>
 
         <div class="tm" data-t="${st.id}">00:00:00</div>
+        <div class="tap-hint">${on ? "Appuyer pour arrêter" : "Appuyer pour démarrer"}</div>
 
         <div class="tools">
           <button data-act="editStu" aria-label="Modifier">✎</button>
@@ -536,18 +692,13 @@ function classView(c) {
     </div>
 
     <div class="bar">
-      <button class="btn pri" data-act="addStu">
-        + Ajouter un élève
-      </button>
-
-      <button class="btn" data-act="finish">
-        Stopper tous les chronos
-      </button>
+      <button class="btn pri" data-act="addStu">+ Ajouter un élève</button>
+      <button class="btn" data-act="finish">Stopper tous les chronos</button>
     </div>
 
     <div class="list">
       ${list || `
-        <div class="empty">
+        <div class="empty" style="grid-column:1/-1">
           Aucun élève dans cette classe.<br>
           Ajoutez-en un pour démarrer.
         </div>
@@ -792,6 +943,12 @@ $("app").addEventListener("click", async e => {
       save();
       render();
     }
+  }
+
+  else if (act === "moreStu") {
+    e.stopPropagation();
+    const card = b.closest(".stu");
+    if (card) card.classList.toggle("show-tools");
   }
 
   else if (act === "editStu") {
