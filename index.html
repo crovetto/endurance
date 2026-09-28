@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ClassTimer – Chronomètre élèves</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#3987fb">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ClassTimer">
+
 <style>
 /* ===== Thème (clair par défaut, sombre au choix) ===== */
 :root{--bg:#f8fafc;--card:#fff;--tx:#0f172a;--mut:#64748b;--line:#e2e8f0;--pri:#3987fb;--on:#22c55e;--onbg:#dcfce7;--ontx:#15803d;--dng:#ef4444}
@@ -75,6 +82,12 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 .hist-card b{display:block}
 .hist-card small{display:block;margin-top:3px}
 
+
+.install-wrap{margin:10px 0 4px}
+.install-note{margin-top:7px;font-size:13px;color:var(--mut)}
+.offline-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--line);color:var(--mut);font-size:13px;font-weight:600}
+.offline-badge.ok{background:var(--onbg);color:var(--ontx)}
+
 </style>
 </head>
 <body>
@@ -96,6 +109,7 @@ const KEY = "classtimer.v2";
 const BACKUP_KEY = "classtimer.v2.backup";
 const OLD_KEY = "classtimer.v1";
 let lastSavedAt = null;
+let deferredInstallPrompt = null;
 
 function defaultState() {
   return { classes: [], theme: null, version: 2 };
@@ -404,6 +418,7 @@ function render() {
 
   tick();
   updateSaveIndicator();
+  refreshInstallUI();
 }
 
 const topBar = `
@@ -451,6 +466,11 @@ function homeView() {
     ${saveIndicator}
 
     <h1>Chronomètre élèves</h1>
+
+    <div class="install-wrap">
+      <button class="btn big" id="installBtn" data-act="installApp">Installer l’app</button>
+      <div class="install-note" id="installNote">L’app peut être installée sur le téléphone et utilisée hors ligne.</div>
+    </div>
 
     <button class="btn pri big" data-act="addClass">
       + Ajouter une classe
@@ -572,6 +592,103 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", save);
 window.addEventListener("beforeunload", save);
 
+
+/* ---------- Installation PWA / mode hors ligne ---------- */
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches ||
+         window.navigator.standalone === true;
+}
+
+function refreshInstallUI() {
+  const btn = $("installBtn");
+  const note = $("installNote");
+  if (!btn || !note) return;
+
+  if (isStandalone()) {
+    btn.textContent = "App installée";
+    btn.disabled = true;
+    note.textContent = navigator.onLine
+      ? "Installée. Le chronomètre et les données restent disponibles hors ligne."
+      : "Mode hors ligne actif. Les données sont enregistrées sur cet appareil.";
+    return;
+  }
+
+  btn.disabled = false;
+
+  if (deferredInstallPrompt) {
+    btn.textContent = "Installer l’app";
+    note.textContent = "Installation disponible sur cet appareil.";
+  } else if (isIOS()) {
+    btn.textContent = "Installer sur iPhone / iPad";
+    note.textContent = "Safari : Partager → Sur l’écran d’accueil.";
+  } else {
+    btn.textContent = "Installer l’app";
+    note.textContent = "Si le navigateur ne propose pas l’installation, ouvre son menu puis choisis Installer l’application / Ajouter à l’écran d’accueil.";
+  }
+}
+
+async function installApp() {
+  if (isStandalone()) return;
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    try { await deferredInstallPrompt.userChoice; } catch (e) {}
+    deferredInstallPrompt = null;
+    refreshInstallUI();
+    return;
+  }
+
+  if (isIOS()) {
+    await show(`
+      <form method="dialog">
+        <h2>Installer ClassTimer</h2>
+        <p>Dans Safari :</p>
+        <p><b>1.</b> Appuie sur le bouton <b>Partager</b>.</p>
+        <p><b>2.</b> Choisis <b>Sur l’écran d’accueil</b>.</p>
+        <p><b>3.</b> Appuie sur <b>Ajouter</b>.</p>
+        <p><small>Après une première ouverture avec Internet, l’app pourra fonctionner hors ligne.</small></p>
+        <div class="row"><button value="close" class="btn pri">Fermer</button></div>
+      </form>
+    `);
+    return;
+  }
+
+  await show(`
+    <form method="dialog">
+      <h2>Installer ClassTimer</h2>
+      <p>Utilise le menu de ton navigateur puis choisis <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.</p>
+      <p><small>Sur Android avec Chrome, l’option apparaît généralement dans le menu ⋮.</small></p>
+      <div class="row"><button value="close" class="btn pri">Fermer</button></div>
+    </form>
+  `);
+}
+
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  refreshInstallUI();
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  refreshInstallUI();
+});
+
+window.addEventListener("online", refreshInstallUI);
+window.addEventListener("offline", refreshInstallUI);
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => {
+      console.error("Service Worker non enregistré :", err);
+    });
+  });
+}
+
 /* ---------- Actions ---------- */
 const g = (b, k) => {
   const n = b.closest("[data-" + k + "]");
@@ -588,7 +705,11 @@ $("app").addEventListener("click", async e => {
     c &&
     c.students.find(s => s.id === g(b, "s"));
 
-  if (act === "theme") {
+  if (act === "installApp") {
+    await installApp();
+  }
+
+  else if (act === "theme") {
     S.theme =
       document.documentElement.dataset.theme === "dark"
         ? "light"
