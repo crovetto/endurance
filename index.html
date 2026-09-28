@@ -247,6 +247,37 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
   }
 }
 
+
+/* ===== Endurance workflow ===== */
+.panel{margin:14px 0;padding:16px;background:var(--card);border:1px solid var(--line);border-radius:18px}
+.section-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.compact{min-height:38px!important;padding:0 12px!important;font-size:14px!important;border-radius:10px!important}
+.selection-list{display:grid;gap:8px}
+.select-student{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.select-student input{width:22px;height:22px;accent-color:var(--pri)}
+.select-name{min-width:0}.select-name b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--tx)}
+.selection-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode-card{position:relative;display:block;padding:14px;border:2px solid var(--line);border-radius:14px;cursor:pointer;background:var(--bg)}
+.mode-card.active{border-color:var(--pri);box-shadow:0 0 0 1px var(--pri)}
+.mode-card input{position:absolute;opacity:0}.mode-card b,.mode-card small{display:block}.mode-card small{margin-top:4px}
+.distance-row{display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:14px}
+.distance-row span{display:block;margin-bottom:6px;font-size:13px;font-weight:700}
+.distance-row input,.distance-row select{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--tx);padding:0 12px;font:inherit}
+.timer-header{display:flex;justify-content:space-between;align-items:end;gap:12px;margin:4px 0 12px}
+.timer-header h1{margin:0}.master-time{font-size:clamp(28px,9vw,46px);font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.race-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.race-card{position:relative;aspect-ratio:1/1.08;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px 6px;min-width:0;border:1.5px solid #9cc9f8;border-radius:11px;background:#eaf4ff;text-align:center;user-select:none;-webkit-tap-highlight-color:transparent;cursor:pointer}
+.race-card.finished{border-color:#75d48a;background:#effbf1}
+.race-name{width:100%;min-width:0}.race-name b,.race-name small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.race-name b{font-size:11px;line-height:1.05}.race-name small{font-size:8px;color:var(--mut);margin-top:1px}
+.race-time{width:100%;margin-top:5px;padding-top:4px;border-top:1px solid rgba(100,116,139,.22);font-size:10.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.race-status,.lap-mini{margin-top:3px;font-size:8px;color:var(--mut);line-height:1.05}
+.helper-text{margin:12px 2px;color:var(--mut);font-size:13px}
+@media(max-width:430px){#app{padding-left:8px;padding-right:8px}.race-grid{gap:5px}.race-card{border-radius:10px;padding:7px 3px 5px}.mode-switch{grid-template-columns:1fr}}
+@media(min-width:700px){.race-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+
 </style>
 </head>
 <body>
@@ -256,1097 +287,142 @@ td:last-child,th:last-child{text-align:right;font-variant-numeric:tabular-nums;f
 <script>
 "use strict";
 
-/* ============================================================
-   ClassTimer – version robuste locale
-   - Sauvegarde principale + backup dans localStorage
-   - Reprise fiable des chronos actifs après reload/fermeture
-   - Historique par exercice
-   - Export CSV exercice actuel / exercice archivé / historique
-   ============================================================ */
+const KEY="classtimer.endurance.v1",BACKUP_KEY="classtimer.endurance.v1.backup";
+let deferredInstallPrompt=null;
 
-const KEY = "classtimer.v2";
-const BACKUP_KEY = "classtimer.v2.backup";
-const OLD_KEY = "classtimer.v1";
-let lastSavedAt = null;
-let deferredInstallPrompt = null;
+const $=id=>document.getElementById(id);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const pad=n=>String(n).padStart(2,"0");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt=ms=>{ms=Math.max(0,Number(ms)||0);const t=Math.floor(ms/1000),m=Math.floor(t/60),s=t%60,d=Math.floor(ms%1000/100);return `${pad(m)}:${pad(s)}.${d}`};
+const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 
-function defaultState() {
-  return { classes: [], theme: null, version: 2 };
-}
-
-function normaliseState(s) {
-  if (!s || !Array.isArray(s.classes)) return null;
-  s.version = 2;
-
-  s.classes.forEach(c => {
-    c.students = Array.isArray(c.students) ? c.students : [];
-    c.history = Array.isArray(c.history) ? c.history : [];
-    c.currentExerciseStartedAt = c.currentExerciseStartedAt || null;
-
-    c.students.forEach(st => {
-      st.total = Number.isFinite(st.total) ? st.total : 0;
-      st.startedAt = Number.isFinite(st.startedAt) ? st.startedAt : null;
-      st.sessions = Number.isFinite(st.sessions) ? st.sessions : 0;
-      st.lastUpdate = Number.isFinite(st.lastUpdate) ? st.lastUpdate : Date.now();
-    });
-  });
-
-  return s;
-}
-
-function parseStored(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    return normaliseState(JSON.parse(raw));
-  } catch (e) {
-    return null;
+function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",selected:s.selected!==false}}
+function normClass(c){return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup:c.setup||{mode:"race",distance:"",distanceUnit:"m"},activeSession:c.activeSession||null}}
+function normState(s){if(!s||!Array.isArray(s.classes))return null;s.classes=s.classes.map(normClass);return s}
+function parse(k){try{const r=localStorage.getItem(k);return r?normState(JSON.parse(r)):null}catch(e){return null}}
+function load(){
+  let s=parse(KEY)||parse(BACKUP_KEY);
+  if(s)return s;
+  for(const k of ["classtimer.v2","classtimer.v1"]){
+    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m"},activeSession:null}));return l}
   }
+  return{theme:null,classes:[]};
+}
+let S=load(),lastSavedAt=null;
+function save(){try{const old=localStorage.getItem(KEY);if(old)localStorage.setItem(BACKUP_KEY,old);const raw=JSON.stringify(S);localStorage.setItem(KEY,raw);localStorage.setItem(BACKUP_KEY,raw);lastSavedAt=Date.now();updateSaveIndicator()}catch(e){alert("Sauvegarde locale impossible.")}}
+const cls=id=>S.classes.find(c=>c.id===id);
+
+function route(){
+  const h=location.hash||"#/"; let m;
+  if((m=h.match(/^#\/setup\/([^/]+)$/)))return{page:"setup",id:m[1]};
+  if((m=h.match(/^#\/timer\/([^/]+)$/)))return{page:"timer",id:m[1]};
+  return{page:"home"};
 }
 
-function load() {
-  let s = parseStored(KEY);
-  if (s) return s;
+function dateFR(ts){return new Date(ts).toLocaleString("fr-CH",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}
+function updateSaveIndicator(){const e=$("saveState");if(e)e.innerHTML=`<span class="save-dot"></span> Sauvegardé localement${lastSavedAt?" à "+new Date(lastSavedAt).toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit",second:"2-digit"}):""}`}
+function applyTheme(){document.documentElement.dataset.theme=S.theme||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}
+const topBar=`<div class="top"><span class="brand">⏱ ClassTimer</span><div style="display:flex;gap:8px"><button class="ib" data-act="install">⬇</button><button class="ib" data-act="theme">◐</button></div></div>`;
+const saveIndicator=`<div class="save-state" id="saveState"><span class="save-dot"></span>Sauvegardé localement</div>`;
 
-  s = parseStored(BACKUP_KEY);
-  if (s) {
-    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {}
-    return s;
-  }
-
-  s = parseStored(OLD_KEY);
-  if (s) {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(s));
-      localStorage.setItem(BACKUP_KEY, JSON.stringify(s));
-    } catch (e) {}
-    return s;
-  }
-
-  return defaultState();
+function render(){
+  applyTheme(); const r=route(),a=$("app");
+  if(r.page==="home")a.innerHTML=homeView();
+  if(r.page==="setup")a.innerHTML=setupView(cls(r.id));
+  if(r.page==="timer")a.innerHTML=timerView(cls(r.id));
+  updateSaveIndicator(); tick();
 }
 
-let S = load();
-
-function save() {
-  try {
-    const previous = localStorage.getItem(KEY);
-    if (previous) localStorage.setItem(BACKUP_KEY, previous);
-
-    localStorage.setItem(KEY, JSON.stringify(S));
-    localStorage.setItem(BACKUP_KEY, JSON.stringify(S));
-
-    lastSavedAt = Date.now();
-    updateSaveIndicator();
-    return true;
-  } catch (e) {
-    alert("Sauvegarde impossible : le stockage local du navigateur est indisponible ou plein.");
-    return false;
-  }
+function homeView(){
+  const cards=S.classes.map(c=>`<div class="cc" role="button" tabindex="0" data-act="openSetup" data-c="${c.id}"><div class="grow"><b>${esc(c.name)}</b><small>${c.students.length} élèves</small></div><div class="tools"><button class="ib" data-act="renClass" data-c="${c.id}">✎</button><button class="ib" data-act="delClass" data-c="${c.id}">✕</button></div></div>`).join("");
+  return`${topBar}${saveIndicator}<h1>Classes</h1><button class="btn pri big" data-act="addClass">+ Ajouter une classe</button><div class="grid">${cards||'<div class="empty">Aucune classe.</div>'}</div>`;
 }
 
-/* ---------- Utilitaires ---------- */
-const $ = id => document.getElementById(id);
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-const esc = s => String(s).replace(/[&<>"']/g, c => ({
-  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-}[c]));
-const pad = n => String(n).padStart(2, "0");
+function setupView(c){
+  if(!c)return homeView();
+  const rows=c.students.map(s=>`<label class="select-student"><input type="checkbox" data-act="selectStu" data-c="${c.id}" data-s="${s.id}" ${s.selected!==false?"checked":""}><span class="select-name"><b>${esc(fullName(s))}</b></span><button type="button" class="mini-btn" data-act="editStu" data-c="${c.id}" data-s="${s.id}">✎</button><button type="button" class="mini-btn" data-act="delStu" data-c="${c.id}" data-s="${s.id}">✕</button></label>`).join("");
+  const n=c.students.filter(s=>s.selected!==false).length;
+  return`${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1><span class="badge">${n}/${c.students.length} sélectionnés</span></div>
+  <section class="panel"><div class="section-title-row"><h2>Élèves</h2><button class="btn compact" data-act="addStu" data-c="${c.id}">+ Ajouter</button></div><div class="selection-list">${rows||'<div class="empty">Aucun élève.</div>'}</div><div class="selection-actions"><button class="btn compact" data-act="selectAll" data-c="${c.id}">Tout sélectionner</button><button class="btn compact" data-act="selectNone" data-c="${c.id}">Tout décocher</button></div></section>
+  <section class="panel"><h2>Type de chrono</h2><div class="mode-switch">
+  <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
+  <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label></div>
+  <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div></section>
+  <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Continuer vers le chrono</button>`;
+}
 
-const fmt = ms => {
-  const sec = Math.floor(Math.max(0, ms) / 1000);
-  return [(sec / 3600) | 0, ((sec % 3600) / 60) | 0, sec % 60].map(pad).join(":");
-};
+function makeSession(c){
+  const selected=c.students.filter(s=>s.selected!==false);
+  if(!selected.length){alert("Sélectionne au moins un élève.");return null}
+  const now=Date.now();
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
+  save(); return c.activeSession;
+}
+function sessionElapsed(s,p){if(!s.startedAt)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-s.startedAt)}
+function startAll(c){const s=c.activeSession;if(!s||s.status!=="ready")return;const now=Date.now();s.startedAt=now;s.status="running";s.participants.forEach(p=>p.lastLapAt=now);save();render()}
+function tapParticipant(c,p){
+  const s=c.activeSession;if(!s||s.status!=="running")return;const now=Date.now();
+  if(s.mode==="race"){if(p.finishedAt)return;p.finishedAt=now;p.elapsedMs=now-s.startedAt;if(s.participants.every(x=>x.finishedAt))finishSession(c);else{save();render()}}
+  else{const prev=p.lastLapAt||s.startedAt;const lap=now-prev,total=now-s.startedAt;p.laps.push({n:p.laps.length+1,lapTimeMs:lap,totalTimeMs:total,recordedAt:now});p.lastLapAt=now;save();render()}
+}
+function finishSession(c){
+  const s=c.activeSession;if(!s||s.status==="finished")return;const now=Date.now();s.finishedAt=now;s.status="finished";
+  if(s.mode==="race")s.participants.forEach(p=>{if(!p.finishedAt){p.finishedAt=now;p.elapsedMs=now-s.startedAt}});
+  c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
+}
 
-const elapsed = st =>
-  st.total + (st.startedAt ? Math.max(0, Date.now() - st.startedAt) : 0);
+function timerView(c){
+  if(!c||!c.activeSession)return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c?.id||""}">‹ Réglages</a><div class="empty">Aucune séance préparée.</div>`;
+  const s=c.activeSession;
+  const cards=s.participants.map((p,i)=>{const last=p.laps[p.laps.length-1];return`<div class="race-card ${p.finishedAt?"finished":""}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}"><div class="student-number">#${i+1}</div><div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}</small></div><div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div><div class="race-status">${s.mode==="race"?(p.finishedAt?"Terminé":s.status==="running"?"Arrivée":"Prêt"):(s.status==="running"?`${p.laps.length} tour${p.laps.length>1?"s":""}`:"Prêt")}</div>${s.mode==="laps"?`<div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}</div>`}).join("");
+  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1><small>${s.mode==="race"?"Course":"Tours"} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
+  <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
+  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Chaque appui sur une carte enregistre un tour et le temps depuis le tour précédent.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
+}
+function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;const m=$("masterTime");if(m)m.textContent=fmt(s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0);document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
+setInterval(tick,100);
 
-const fullName = st => (st.first + " " + st.last).trim();
+function show(html){return new Promise(res=>{const d=$("dlg");d.innerHTML=html;d.returnValue="";d.addEventListener("close",()=>{const f=d.querySelector("form");res({v:d.returnValue,f:f?new FormData(f):null})},{once:true});d.showModal()})}
+async function ask(title,fields,ok="Enregistrer"){const inputs=fields.map((f,i)=>`<label>${esc(f.label)}<input name="f${i}" value="${esc(f.value||"")}" placeholder="${esc(f.ph||"")}" ${f.opt?"":"required"}></label>`).join("");const r=await show(`<form method="dialog"><h2>${esc(title)}</h2>${inputs}<div class="row"><button value="cancel" class="btn">Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"?fields.map((_,i)=>(r.f.get("f"+i)||"").trim()):null}
+async function confirmBox(msg,ok="Confirmer"){const r=await show(`<form method="dialog"><h2>${esc(msg)}</h2><div class="row"><button value="cancel" class="btn">Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"}
 
-const COLORS = ["#ef4444", "#3987fb", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899"];
-
-const cls = id => S.classes.find(c => c.id === id);
-
-const curId = () => {
-  const m = location.hash.match(/^#\/c\/(.+)$/);
-  return m && cls(m[1]) ? m[1] : null;
-};
-
-const dateFR = ts => new Date(ts).toLocaleString("fr-CH", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit"
+$("app").addEventListener("click",async e=>{
+  const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,c=cls(b.dataset.c||route().id);
+  if(act==="theme"){S.theme=document.documentElement.dataset.theme==="dark"?"light":"dark";save();render()}
+  else if(act==="install"){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null}else alert("iPhone/iPad : Safari → Partager → Sur l’écran d’accueil. Android/Chrome : menu → Installer l’application.")}
+  else if(act==="openSetup")location.hash=`#/setup/${b.dataset.c}`
+  else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
+  else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
+  else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
+  else if(act==="addStu"){const r=await ask("Ajouter un élève",[{label:"Prénom"},{label:"Nom",opt:true}],"Ajouter");if(r){c.students.push({id:uid(),first:r[0],last:r[1],selected:true});save();render()}}
+  else if(act==="editStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);const r=await ask("Modifier l'élève",[{label:"Prénom",value:s.first},{label:"Nom",value:s.last,opt:true}]);if(r){s.first=r[0];s.last=r[1];save();render()}}
+  else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
+  else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
+  else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
+  else if(act==="prepareSession"){c.setup.distance=($("distanceInput")?.value||"").trim();if(makeSession(c))location.hash=`#/timer/${c.id}`}
+  else if(act==="startAll")startAll(c)
+  else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
+  else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
+  else if(act==="newSession"){c.activeSession=null;save();location.hash=`#/setup/${c.id}`}
+  else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
 });
 
-function hasExerciseData(c) {
-  return c.students.some(st => elapsed(st) > 0 || (st.sessions || 0) > 0);
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}});
+$("app").addEventListener("input",e=>{if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}});
+
+function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function exportSessionCsv(c,s){
+  const rows=[["Classe","Date","Mode","Distance","Unité","Prénom","Nom","Temps total","Tour","Temps tour","Temps cumulé"]];
+  s.participants.forEach(p=>{if(s.mode==="race"){rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,fmt(p.elapsedMs||sessionElapsed(s,p)),"","",""])}else if(p.laps.length){p.laps.forEach(l=>rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,fmt(l.totalTimeMs),l.n,fmt(l.lapTimeMs),fmt(l.totalTimeMs)]))}else rows.push([c.name,dateFR(s.startedAt||s.createdAt),"Tours",s.distance,s.distanceUnit,p.first,p.last,"",0,"",""])});
+  const text="\uFEFF"+rows.map(r=>r.map(csvQ).join(";")).join("\r\n"),url=URL.createObjectURL(new Blob([text],{type:"text/csv;charset=utf-8"})),a=document.createElement("a");a.href=url;a.download=`${c.name.replace(/\s+/g,"_")}_${s.mode}.csv`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
 
-function touchStudent(st) {
-  st.lastUpdate = Date.now();
-}
-
-function updateSaveIndicator() {
-  const el = $("saveState");
-  if (!el) return;
-
-  el.innerHTML =
-    `<span class="save-dot"></span> Sauvegardé localement${
-      lastSavedAt
-        ? " à " + new Date(lastSavedAt).toLocaleTimeString("fr-CH", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-          })
-        : ""
-    }`;
-}
-
-/* ---------- Chronomètre ---------- */
-function startSt(st, c) {
-  if (st.startedAt) return;
-
-  const now = Date.now();
-  st.startedAt = now;
-  touchStudent(st);
-
-  if (c && !c.currentExerciseStartedAt) {
-    c.currentExerciseStartedAt = now;
-  }
-
-  /* Sauvegarde immédiate du timestamp de départ. */
-  save();
-}
-
-function stopSt(st) {
-  if (!st.startedAt) return;
-
-  const now = Date.now();
-  st.total += Math.max(0, now - st.startedAt);
-  st.startedAt = null;
-  st.sessions = (st.sessions || 0) + 1;
-  st.lastUpdate = now;
-
-  save();
-}
-
-function stopAll(c) {
-  let changed = false;
-
-  c.students.forEach(st => {
-    if (!st.startedAt) return;
-
-    const now = Date.now();
-    st.total += Math.max(0, now - st.startedAt);
-    st.startedAt = null;
-    st.sessions = (st.sessions || 0) + 1;
-    st.lastUpdate = now;
-    changed = true;
-  });
-
-  if (changed) save();
-}
-
-/* ---------- Historique ---------- */
-function archiveCurrentExercise(c) {
-  stopAll(c);
-
-  if (!hasExerciseData(c)) return null;
-
-  const now = Date.now();
-
-  const exercise = {
-    id: uid(),
-    startedAt: c.currentExerciseStartedAt || now,
-    endedAt: now,
-    students: c.students.map(st => ({
-      studentId: st.id,
-      first: st.first,
-      last: st.last,
-      total: Math.max(0, st.total),
-      sessions: st.sessions || 0,
-      lastUpdate: st.lastUpdate || now
-    }))
-  };
-
-  c.history.push(exercise);
-  save();
-
-  return exercise;
-}
-
-function resetCurrentExercise(c) {
-  c.students.forEach(st => {
-    st.total = 0;
-    st.startedAt = null;
-    st.sessions = 0;
-    st.lastUpdate = Date.now();
-  });
-
-  c.currentExerciseStartedAt = null;
-  save();
-}
-
-/* ---------- Dialogs ---------- */
-function show(html) {
-  return new Promise(res => {
-    const d = $("dlg");
-    d.innerHTML = html;
-    d.returnValue = "";
-
-    d.addEventListener("close", () => {
-      const f = d.querySelector("form");
-      res({
-        v: d.returnValue,
-        f: f ? new FormData(f) : null
-      });
-    }, { once: true });
-
-    d.showModal();
-
-    const i = d.querySelector("input");
-    if (i) i.select();
-  });
-}
-
-async function ask(title, fields, ok) {
-  const inputs = fields.map((f, i) =>
-    `<label>${esc(f.label)}
-      <input
-        name="f${i}"
-        value="${esc(f.value || "")}"
-        placeholder="${esc(f.ph || "")}"
-        autocomplete="off"
-        ${f.opt ? "" : "required"}
-      >
-    </label>`
-  ).join("");
-
-  const r = await show(`
-    <form method="dialog">
-      <h2>${esc(title)}</h2>
-      ${inputs}
-      <div class="row">
-        <button value="ok" class="btn pri" style="order:2">
-          ${esc(ok || "Enregistrer")}
-        </button>
-        <button value="cancel" class="btn" formnovalidate>Annuler</button>
-      </div>
-    </form>
-  `);
-
-  return r.v === "ok"
-    ? fields.map((_, i) => (r.f.get("f" + i) || "").trim())
-    : null;
-}
-
-async function confirmBox(msg, label) {
-  const r = await show(`
-    <form method="dialog">
-      <h2>${esc(msg)}</h2>
-      <div class="row">
-        <button
-          value="ok"
-          class="btn pri dng"
-          style="order:2;background:var(--dng);color:#fff;border-color:var(--dng)"
-        >
-          ${esc(label)}
-        </button>
-        <button value="cancel" class="btn">Annuler</button>
-      </div>
-    </form>
-  `);
-
-  return r.v === "ok";
-}
-
-/* ---------- Affichage ---------- */
-function applyTheme() {
-  document.documentElement.dataset.theme =
-    S.theme ||
-    (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-}
-
-function render() {
-  applyTheme();
-
-  const id = curId();
-  $("app").innerHTML = id ? classView(cls(id)) : homeView();
-
-  tick();
-  updateSaveIndicator();
-  refreshInstallUI();
-}
-
-const topBar = `
-  <div class="top">
-    <span class="brand">⏱ ClassTimer</span>
-    <button class="ib" data-act="theme" aria-label="Changer de thème">◐</button>
-  </div>
-`;
-
-const saveIndicator = `
-  <div class="save-state" id="saveState">
-    <span class="save-dot"></span>
-    Sauvegardé localement
-  </div>
-`;
-
-function homeView() {
-  const cards = S.classes.map((c, i) => {
-    const run = c.students.filter(s => s.startedAt).length;
-    const hist = c.history.length;
-
-    return `
-      <div class="cc" role="link" tabindex="0" data-act="open" data-c="${c.id}">
-        <span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
-
-        <div class="grow">
-          <b>${esc(c.name)}</b>
-          <small>
-            ${c.students.length} élève${c.students.length > 1 ? "s" : ""}
-            ${run ? " · " + run + " en cours" : ""}
-            ${hist ? " · " + hist + " exercice" + (hist > 1 ? "s" : "") + " archivé" + (hist > 1 ? "s" : "") : ""}
-          </small>
-        </div>
-
-        <div class="tools">
-          <button class="ib" data-act="renClass" aria-label="Renommer">✎</button>
-          <button class="ib" data-act="delClass" aria-label="Supprimer">✕</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  return `
-    ${topBar}
-    ${saveIndicator}
-
-    <h1>Chronomètre élèves</h1>
-
-    <div class="install-wrap">
-      <button class="btn big" id="installBtn" data-act="installApp">Installer l’app</button>
-      <div class="install-note" id="installNote">L’app peut être installée sur le téléphone et utilisée hors ligne.</div>
-    </div>
-
-    <button class="btn pri big" data-act="addClass">
-      + Ajouter une classe
-    </button>
-
-    <div class="grid">
-      ${cards || `
-        <div class="empty">
-          Aucune classe pour l'instant.<br>
-          Créez-en une pour ajouter vos élèves.
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function classView(c) {
-  const list = c.students.map((st, index) => {
-    const on = !!st.startedAt;
-    const n = st.sessions || 0;
-
-    return `
-      <div
-        class="stu${on ? " on" : ""}"
-        role="button"
-        tabindex="0"
-        data-act="toggle"
-        data-s="${st.id}"
-        aria-pressed="${on}"
-      >
-        <div class="num">#${index + 1}</div>
-        <span class="status-dot" aria-hidden="true"></span>
-
-        <div class="nm">
-          <b>${esc(fullName(st))}</b>
-          <small>${n} session${n > 1 ? "s" : ""}</small>
-        </div>
-
-        <div class="tm" data-t="${st.id}">00:00:00</div>
-        <div class="tap-hint">${on ? "Appuyer pour arrêter" : "Appuyer pour démarrer"}</div>
-
-        <div class="tools">
-          <button data-act="editStu" aria-label="Modifier">✎</button>
-          <button data-act="resetStu" aria-label="Remettre à zéro">↺</button>
-          <button data-act="delStu" aria-label="Supprimer">✕</button>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  return `
-    ${topBar}
-    ${saveIndicator}
-
-    <a class="back" href="#/">‹ Retour aux classes</a>
-
-    <div class="head">
-      <h1>${esc(c.name)}</h1>
-      <span class="badge" id="badge"></span>
-    </div>
-
-    <div class="bar">
-      <button class="btn pri" data-act="addStu">+ Ajouter un élève</button>
-      <button class="btn" data-act="finish">Stopper tous les chronos</button>
-    </div>
-
-    <div class="list">
-      ${list || `
-        <div class="empty" style="grid-column:1/-1">
-          Aucun élève dans cette classe.<br>
-          Ajoutez-en un pour démarrer.
-        </div>
-      `}
-    </div>
-
-    <div class="bar">
-      <button class="btn" data-act="csv">CSV exercice actuel</button>
-      <button class="btn" data-act="history">Historique</button>
-      <button class="btn dng" data-act="newEx">Nouvel exercice</button>
-    </div>
-  `;
-}
-
-/* ---------- Tick ---------- */
-function tick() {
-  const c = cls(curId());
-  if (!c) return;
-
-  document.querySelectorAll("[data-t]").forEach(n => {
-    const st = c.students.find(s => s.id === n.dataset.t);
-    if (st) n.textContent = fmt(elapsed(st));
-  });
-
-  const run = c.students.filter(s => s.startedAt).length;
-  const b = $("badge");
-
-  if (b) {
-    b.textContent = run ? run + " en cours" : "Aucun chrono actif";
-    b.className = "badge" + (run ? " live" : "");
-  }
-}
-
-setInterval(tick, 250);
-
-/* Sauvegardes préventives lorsque la page est quittée/masquée. */
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") save();
-  tick();
-});
-
-window.addEventListener("pagehide", save);
-window.addEventListener("beforeunload", save);
-
-
-/* ---------- Installation PWA / mode hors ligne ---------- */
-function isIOS() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isStandalone() {
-  return window.matchMedia("(display-mode: standalone)").matches ||
-         window.navigator.standalone === true;
-}
-
-function refreshInstallUI() {
-  const btn = $("installBtn");
-  const note = $("installNote");
-  if (!btn || !note) return;
-
-  if (isStandalone()) {
-    btn.textContent = "App installée";
-    btn.disabled = true;
-    note.textContent = navigator.onLine
-      ? "Installée. Le chronomètre et les données restent disponibles hors ligne."
-      : "Mode hors ligne actif. Les données sont enregistrées sur cet appareil.";
-    return;
-  }
-
-  btn.disabled = false;
-
-  if (deferredInstallPrompt) {
-    btn.textContent = "Installer l’app";
-    note.textContent = "Installation disponible sur cet appareil.";
-  } else if (isIOS()) {
-    btn.textContent = "Installer sur iPhone / iPad";
-    note.textContent = "Safari : Partager → Sur l’écran d’accueil.";
-  } else {
-    btn.textContent = "Installer l’app";
-    note.textContent = "Si le navigateur ne propose pas l’installation, ouvre son menu puis choisis Installer l’application / Ajouter à l’écran d’accueil.";
-  }
-}
-
-async function installApp() {
-  if (isStandalone()) return;
-
-  if (deferredInstallPrompt) {
-    deferredInstallPrompt.prompt();
-    try { await deferredInstallPrompt.userChoice; } catch (e) {}
-    deferredInstallPrompt = null;
-    refreshInstallUI();
-    return;
-  }
-
-  if (isIOS()) {
-    await show(`
-      <form method="dialog">
-        <h2>Installer ClassTimer</h2>
-        <p>Dans Safari :</p>
-        <p><b>1.</b> Appuie sur le bouton <b>Partager</b>.</p>
-        <p><b>2.</b> Choisis <b>Sur l’écran d’accueil</b>.</p>
-        <p><b>3.</b> Appuie sur <b>Ajouter</b>.</p>
-        <p><small>Après une première ouverture avec Internet, l’app pourra fonctionner hors ligne.</small></p>
-        <div class="row"><button value="close" class="btn pri">Fermer</button></div>
-      </form>
-    `);
-    return;
-  }
-
-  await show(`
-    <form method="dialog">
-      <h2>Installer ClassTimer</h2>
-      <p>Utilise le menu de ton navigateur puis choisis <b>Installer l’application</b> ou <b>Ajouter à l’écran d’accueil</b>.</p>
-      <p><small>Sur Android avec Chrome, l’option apparaît généralement dans le menu ⋮.</small></p>
-      <div class="row"><button value="close" class="btn pri">Fermer</button></div>
-    </form>
-  `);
-}
-
-window.addEventListener("beforeinstallprompt", e => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  refreshInstallUI();
-});
-
-window.addEventListener("appinstalled", () => {
-  deferredInstallPrompt = null;
-  refreshInstallUI();
-});
-
-window.addEventListener("online", refreshInstallUI);
-window.addEventListener("offline", refreshInstallUI);
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(err => {
-      console.error("Service Worker non enregistré :", err);
-    });
-  });
-}
-
-/* ---------- Actions ---------- */
-const g = (b, k) => {
-  const n = b.closest("[data-" + k + "]");
-  return n && n.dataset[k];
-};
-
-$("app").addEventListener("click", async e => {
-  const b = e.target.closest("[data-act]");
-  if (!b) return;
-
-  const act = b.dataset.act;
-  const c = cls(g(b, "c") || curId());
-  const st =
-    c &&
-    c.students.find(s => s.id === g(b, "s"));
-
-  if (act === "installApp") {
-    await installApp();
-  }
-
-  else if (act === "theme") {
-    S.theme =
-      document.documentElement.dataset.theme === "dark"
-        ? "light"
-        : "dark";
-
-    save();
-    render();
-  }
-
-  else if (act === "open") {
-    location.hash = "#/c/" + c.id;
-  }
-
-  else if (act === "addClass") {
-    const r = await ask(
-      "Ajouter une classe",
-      [{ label: "Nom de la classe", ph: "Ex. Classe 1A, Groupe lundi" }],
-      "Créer"
-    );
-
-    if (r) {
-      S.classes.push({
-        id: uid(),
-        name: r[0],
-        students: [],
-        history: [],
-        currentExerciseStartedAt: null
-      });
-
-      save();
-      render();
-    }
-  }
-
-  else if (act === "renClass") {
-    const r = await ask(
-      "Renommer la classe",
-      [{ label: "Nom de la classe", value: c.name }]
-    );
-
-    if (r) {
-      c.name = r[0];
-      save();
-      render();
-    }
-  }
-
-  else if (act === "delClass") {
-    if (await confirmBox(
-      `Supprimer « ${c.name} » et toutes ses données, y compris son historique ?`,
-      "Supprimer"
-    )) {
-      S.classes = S.classes.filter(x => x !== c);
-      save();
-      render();
-    }
-  }
-
-  else if (act === "addStu") {
-    const r = await ask(
-      "Ajouter un élève",
-      [
-        { label: "Prénom", ph: "Ex. Alice" },
-        { label: "Nom", ph: "Ex. Martin", opt: true }
-      ],
-      "Ajouter"
-    );
-
-    if (r) {
-      c.students.push({
-        id: uid(),
-        first: r[0],
-        last: r[1],
-        total: 0,
-        startedAt: null,
-        sessions: 0,
-        lastUpdate: Date.now()
-      });
-
-      save();
-      render();
-    }
-  }
-
-  else if (act === "moreStu") {
-    e.stopPropagation();
-    const card = b.closest(".stu");
-    if (card) card.classList.toggle("show-tools");
-  }
-
-  else if (act === "editStu") {
-    const r = await ask(
-      "Modifier l'élève",
-      [
-        { label: "Prénom", value: st.first },
-        { label: "Nom", value: st.last, opt: true }
-      ]
-    );
-
-    if (r) {
-      st.first = r[0];
-      st.last = r[1];
-      touchStudent(st);
-
-      save();
-      render();
-    }
-  }
-
-  else if (act === "delStu") {
-    if (await confirmBox(
-      `Supprimer ${fullName(st)} de la classe ? Les résultats déjà archivés resteront dans l'historique.`,
-      "Supprimer"
-    )) {
-      c.students = c.students.filter(x => x !== st);
-
-      save();
-      render();
-    }
-  }
-
-  else if (act === "resetStu") {
-    if (await confirmBox(
-      `Remettre à zéro le temps ACTUEL de ${fullName(st)} ? Cette remise à zéro individuelle n'est pas archivée automatiquement.`,
-      "Remettre à zéro"
-    )) {
-      st.total = 0;
-      st.startedAt = null;
-      st.sessions = 0;
-      touchStudent(st);
-
-      save();
-      render();
-    }
-  }
-
-  else if (act === "toggle") {
-    if (st.startedAt) {
-      stopSt(st);
-    } else {
-      startSt(st, c);
-    }
-
-    render();
-  }
-
-  else if (act === "finish") {
-    stopAll(c);
-    save();
-    render();
-
-    const rows = c.students.map(s => `
-      <tr>
-        <td>${esc(s.first)}</td>
-        <td>${esc(s.last)}</td>
-        <td>${fmt(elapsed(s))}</td>
-      </tr>
-    `).join("");
-
-    const r = await show(`
-      <form method="dialog">
-        <h2>Chronos stoppés – ${esc(c.name)}</h2>
-
-        <p>
-          <small>
-            Les résultats restent sauvegardés localement.
-            Utilisez « Nouvel exercice » pour les archiver puis repartir à zéro.
-          </small>
-        </p>
-
-        <div class="scroll">
-          <table>
-            <tr>
-              <th>Prénom</th>
-              <th>Nom</th>
-              <th>Temps</th>
-            </tr>
-
-            ${rows || `
-              <tr>
-                <td colspan="3">Aucun élève.</td>
-              </tr>
-            `}
-          </table>
-        </div>
-
-        <div class="row">
-          <button value="csv" class="btn pri" style="order:2">
-            Télécharger le CSV
-          </button>
-          <button value="close" class="btn">Fermer</button>
-        </div>
-      </form>
-    `);
-
-    if (r.v === "csv") exportCurrentCsv(c);
-  }
-
-  else if (act === "csv") {
-    exportCurrentCsv(c);
-  }
-
-  else if (act === "history") {
-    showHistory(c);
-  }
-
-  else if (act === "newEx") {
-    const hasData = hasExerciseData(c);
-
-    const msg = hasData
-      ? "Créer un nouvel exercice ? Les temps actuels seront d'abord archivés dans l'historique, puis remis à zéro."
-      : "Créer un nouvel exercice ? Les chronomètres actuels seront remis à zéro.";
-
-    if (await confirmBox(msg, "Nouvel exercice")) {
-      if (hasData) archiveCurrentExercise(c);
-
-      resetCurrentExercise(c);
-      render();
-    }
-  }
-});
-
-/* Clavier */
-$("app").addEventListener("keydown", e => {
-  if (
-    e.target.matches("[role][data-act]") &&
-    (e.key === "Enter" || e.key === " ")
-  ) {
-    e.preventDefault();
-    e.target.click();
-  }
-});
-
-/* ---------- Historique UI ---------- */
-async function showHistory(c) {
-  const h = c.history.slice().reverse();
-
-  const cards = h.map((ex, index) => {
-    const originalIndex = c.history.length - 1 - index;
-
-    const rows = ex.students.map(s => `
-      <tr>
-        <td>${esc(s.first)}</td>
-        <td>${esc(s.last)}</td>
-        <td>${fmt(s.total)}</td>
-      </tr>
-    `).join("");
-
-    return `
-      <div class="hist-card">
-        <b>Exercice du ${esc(dateFR(ex.endedAt))}</b>
-
-        <small>
-          Début : ${esc(dateFR(ex.startedAt))}
-          · ${ex.students.length} élève(s)
-        </small>
-
-        <div class="scroll">
-          <table>
-            <tr>
-              <th>Prénom</th>
-              <th>Nom</th>
-              <th>Temps</th>
-            </tr>
-            ${rows}
-          </table>
-        </div>
-
-        <div class="row">
-          <button
-            type="button"
-            class="btn"
-            data-hist-index="${originalIndex}"
-          >
-            CSV de cet exercice
-          </button>
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  const r = await show(`
-    <form method="dialog">
-      <h2>Historique – ${esc(c.name)}</h2>
-
-      <div class="scroll hist">
-        ${cards || `
-          <div class="empty">
-            Aucun exercice archivé pour l'instant.
-          </div>
-        `}
-      </div>
-
-      <div class="row">
-        ${h.length ? `
-          <button value="allcsv" class="btn pri" style="order:2">
-            CSV historique complet
-          </button>
-        ` : ""}
-
-        <button value="close" class="btn">Fermer</button>
-      </div>
-    </form>
-  `);
-
-  if (r.v === "allcsv") {
-    exportHistoryCsv(c);
-  }
-}
-
-$("dlg").addEventListener("click", e => {
-  const b = e.target.closest("[data-hist-index]");
-  if (!b) return;
-
-  const c = cls(curId());
-  if (!c) return;
-
-  const ex = c.history[Number(b.dataset.histIndex)];
-
-  if (ex) {
-    exportOneHistoryCsv(c, ex);
-  }
-});
-
-/* ---------- CSV ---------- */
-function csvQuote(v) {
-  v = String(v ?? "");
-
-  if (/^[=+\-@]/.test(v)) {
-    v = "'" + v;
-  }
-
-  return /[;"\r\n]/.test(v)
-    ? '"' + v.replace(/"/g, '""') + '"'
-    : v;
-}
-
-function downloadCsv(rows, filename) {
-  const text =
-    "\uFEFF" +
-    rows.map(r => r.map(csvQuote).join(";")).join("\r\n");
-
-  const url = URL.createObjectURL(
-    new Blob([text], { type: "text/csv;charset=utf-8" })
-  );
-
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-function safeName(s) {
-  return String(s).replace(/[\\\/:*?"<>|\s]+/g, "_");
-}
-
-function ymd(ts = Date.now()) {
-  const d = new Date(ts);
-
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-function exportCurrentCsv(c) {
-  const now = Date.now();
-
-  const rows = [[
-    "Classe",
-    "Prénom",
-    "Nom",
-    "Temps total secondes",
-    "Temps total",
-    "Début exercice",
-    "Export",
-    "Sessions",
-    "Chrono actif",
-    "Dernière mise à jour"
-  ]];
-
-  c.students.forEach(s => {
-    const ms = elapsed(s);
-
-    rows.push([
-      c.name,
-      s.first,
-      s.last,
-      Math.floor(ms / 1000),
-      fmt(ms),
-      c.currentExerciseStartedAt
-        ? dateFR(c.currentExerciseStartedAt)
-        : "",
-      dateFR(now),
-      s.sessions || 0,
-      s.startedAt ? "Oui" : "Non",
-      s.lastUpdate ? dateFR(s.lastUpdate) : ""
-    ]);
-  });
-
-  downloadCsv(
-    rows,
-    `${safeName(c.name)}_exercice_actuel_${ymd(now)}.csv`
-  );
-}
-
-function exportOneHistoryCsv(c, ex) {
-  const rows = [[
-    "Classe",
-    "Exercice ID",
-    "Début exercice",
-    "Fin exercice",
-    "Prénom",
-    "Nom",
-    "Temps total secondes",
-    "Temps total",
-    "Sessions"
-  ]];
-
-  ex.students.forEach(s => {
-    rows.push([
-      c.name,
-      ex.id,
-      dateFR(ex.startedAt),
-      dateFR(ex.endedAt),
-      s.first,
-      s.last,
-      Math.floor(s.total / 1000),
-      fmt(s.total),
-      s.sessions || 0
-    ]);
-  });
-
-  downloadCsv(
-    rows,
-    `${safeName(c.name)}_exercice_${ymd(ex.endedAt)}.csv`
-  );
-}
-
-function exportHistoryCsv(c) {
-  const rows = [[
-    "Classe",
-    "Exercice ID",
-    "Début exercice",
-    "Fin exercice",
-    "Prénom",
-    "Nom",
-    "Temps total secondes",
-    "Temps total",
-    "Sessions"
-  ]];
-
-  c.history.forEach(ex => {
-    ex.students.forEach(s => {
-      rows.push([
-        c.name,
-        ex.id,
-        dateFR(ex.startedAt),
-        dateFR(ex.endedAt),
-        s.first,
-        s.last,
-        Math.floor(s.total / 1000),
-        fmt(s.total),
-        s.sessions || 0
-      ]);
-    });
-  });
-
-  downloadCsv(
-    rows,
-    `${safeName(c.name)}_historique_complet_${ymd()}.csv`
-  );
-}
-
-/* ---------- Démarrage ---------- */
-window.addEventListener("hashchange", render);
-
-window.addEventListener("storage", e => {
-  if (e.key === KEY) {
-    S = load();
-    render();
-  }
-});
-
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
+if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+window.addEventListener("hashchange",render);
+window.addEventListener("pagehide",save);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")save();tick()});
 render();
 </script>
 </body>

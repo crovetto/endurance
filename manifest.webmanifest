@@ -1,25 +1,22 @@
 {
-  "name": "ClassTimer – Chronomètre élèves",
-  "short_name": "ClassTimer",
-  "description": "Chronomètre hors ligne pour classes et élèves avec sauvegarde locale et historique.",
-  "start_url": "./",
+  "name": "ClassTimer Endurance",
+  "short_name": "Endurance",
+  "description": "Chronométrage de courses et de tours par classe",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#3987fb",
-  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "./icon-192.png",
       "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     },
     {
       "src": "./icon-512.png",
       "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "type": "image/png"
     }
   ]
 }
