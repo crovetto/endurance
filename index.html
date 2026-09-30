@@ -769,25 +769,161 @@ function finishSession(c){
 
 function resultsView(c){
   if(!c)return homeView();
-  const sessions=(c.history||[]).filter(s=>s.mode==="laps");
+
+  const sessions=(c.history||[]).filter(s=>s.mode==="laps"||s.mode==="timed");
+
   const blocks=sessions.map((s,si)=>{
-    const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...(s.participants||[]).map(p=>(p.laps||[]).length)),10));
+
+    if(s.mode==="timed"){
+      const rows=(s.participants||[]).map(p=>{
+        const total=p.elapsedMs || (
+          p.finishedAt&&p.startedAt
+            ? Math.max(0,p.finishedAt-p.startedAt)
+            : sessionElapsed(s,p)
+        );
+
+        return `<tr>
+          <td>${esc(p.first)} ${esc(p.last)}</td>
+          <td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>
+          <td class="num"><b>${(p.laps||[]).length}</b></td>
+          <td class="num">${Number(p.extraDistanceM||0)} m</td>
+          <td class="num">${total?fmt(total):"—"}</td>
+        </tr>`;
+      }).join("");
+
+      return `<section class="results-session">
+        <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+        <div class="meta">
+          Temps imposé · ${s.durationMin||12} min
+          · ${dateFR(s.startedAt||s.createdAt)}
+        </div>
+
+        <div class="results-table-wrap">
+          <table class="results-table" style="min-width:620px">
+            <thead>
+              <tr>
+                <th>Élève</th>
+                <th>Sexe</th>
+                <th class="num">Nombre de tours</th>
+                <th class="num">Distance supplémentaire</th>
+                <th class="num">Temps total</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div class="bar">
+          <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
+            Télécharger CSV
+          </button>
+        </div>
+      </section>`;
+    }
+
+    const maxLaps=Math.max(
+      1,
+      parseInt(
+        s.maxLaps ||
+        Math.max(1,...(s.participants||[]).map(p=>(p.laps||[]).length)),
+        10
+      )
+    );
+
     let headers="";
-    for(let i=1;i<=maxLaps;i++)headers+=`<th class="num">Tour ${i}</th><th class="num">Écart</th><th class="num">Pts</th>`;
+    for(let i=1;i<=maxLaps;i++){
+      headers+=`<th class="num">Tour ${i}</th><th class="num">Écart</th><th class="num">Pts</th>`;
+    }
+
     const rows=(s.participants||[]).map(p=>{
-      const laps=p.laps||[],avg=averageLapMs(p);let totalPts=0,cells="";
+      const laps=p.laps||[];
+      const avg=averageLapMs(p);
+      let totalPts=0;
+      let cells="";
+
       for(let i=0;i<maxLaps;i++){
         const l=laps[i];
-        if(l){const d=(l.lapTimeMs||0)-avg,pts=lapPointsFromDiffMs(d);totalPts+=pts;cells+=`<td class="num">${fmt(l.lapTimeMs)}</td><td class="num">${fmtSigned(d)}</td><td class="num"><b>${pts}</b></td>`}
-        else cells+=`<td class="num">—</td><td class="num">—</td><td class="num">0</td>`;
+
+        if(l){
+          const d=(l.lapTimeMs||0)-avg;
+          const pts=lapPointsFromDiffMs(d);
+          totalPts+=pts;
+
+          cells+=`<td class="num">${fmt(l.lapTimeMs)}</td>`;
+          cells+=`<td class="num">${fmtSigned(d)}</td>`;
+          cells+=`<td class="num"><b>${pts}</b></td>`;
+        }else{
+          cells+=`<td class="num">—</td><td class="num">—</td><td class="num">0</td>`;
+        }
       }
-      const total=p.elapsedMs||(p.finishedAt&&p.startedAt?Math.max(0,p.finishedAt-p.startedAt):sessionElapsed(s,p));
-      const maxPts=maxLaps*10,ratio=maxPts?totalPts/maxPts:0,sc=ratio>=.8?"score-good":ratio>=.5?"score-mid":"score-low";
-      return `<tr><td>${esc(p.first)} ${esc(p.last)}</td><td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>${cells}<td class="num"><b>${laps.length?fmt(avg):"—"}</b></td><td class="num">${total?fmt(total):"—"}</td><td class="num"><span class="score-pill ${sc}">${totalPts} / ${maxPts}</span></td></tr>`;
+
+      const total=p.elapsedMs || (
+        p.finishedAt&&p.startedAt
+          ? Math.max(0,p.finishedAt-p.startedAt)
+          : sessionElapsed(s,p)
+      );
+
+      const maxPts=maxLaps*10;
+      const ratio=maxPts?totalPts/maxPts:0;
+      const sc=ratio>=.8?"score-good":ratio>=.5?"score-mid":"score-low";
+
+      return `<tr>
+        <td>${esc(p.first)} ${esc(p.last)}</td>
+        <td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>
+        ${cells}
+        <td class="num"><b>${laps.length?fmt(avg):"—"}</b></td>
+        <td class="num">${total?fmt(total):"—"}</td>
+        <td class="num"><span class="score-pill ${sc}">${totalPts} / ${maxPts}</span></td>
+      </tr>`;
     }).join("");
-    return `<section class="results-session"><h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2><div class="meta">${dateFR(s.startedAt||s.createdAt)}${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""} · ${maxLaps} tour${maxLaps>1?"s":""}</div><div class="results-table-wrap"><table class="results-table"><thead><tr><th>Élève</th><th>Sexe</th>${headers}<th class="num">Moyenne</th><th class="num">Temps total</th><th class="num">Note / points</th></tr></thead><tbody>${rows}</tbody></table></div><div class="bar"><button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">Télécharger CSV</button></div></section>`;
+
+    return `<section class="results-session">
+      <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+      <div class="meta">
+        Tours
+        · ${dateFR(s.startedAt||s.createdAt)}
+        ${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""}
+        · ${maxLaps} tour${maxLaps>1?"s":""}
+      </div>
+
+      <div class="results-table-wrap">
+        <table class="results-table">
+          <thead>
+            <tr>
+              <th>Élève</th>
+              <th>Sexe</th>
+              ${headers}
+              <th class="num">Moyenne</th>
+              <th class="num">Temps total</th>
+              <th class="num">Note / points</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="bar">
+        <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
+          Télécharger CSV
+        </button>
+      </div>
+    </section>`;
   }).join("");
-  return `${topBar}${saveIndicator}<a class="back" href="#/">‹ Retour aux classes</a><div class="head"><h1>${esc(c.name)}</h1></div><div class="class-tabs"><button class="btn" data-act="openSetup" data-c="${c.id}" type="button">Réglages</button><button class="btn active" type="button">Résultats</button></div>${blocks||'<div class="result-empty">Aucun résultat de séance en mode Tours enregistré pour cette classe.</div>'}`;
+
+  return `${topBar}${saveIndicator}
+    <a class="back" href="#/">‹ Retour aux classes</a>
+
+    <div class="head">
+      <h1>${esc(c.name)}</h1>
+    </div>
+
+    <div class="class-tabs">
+      <button class="btn" data-act="openSetup" data-c="${c.id}" type="button">Réglages</button>
+      <button class="btn active" type="button">Résultats</button>
+    </div>
+
+    ${blocks || `<div class="result-empty">Aucun résultat enregistré pour cette classe.</div>`}
+  `;
 }
 
 function timerView(c){
