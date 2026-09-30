@@ -514,6 +514,23 @@ dialog select{
 .end-session-actions .btn{
   width:100%;
 }
+
+/* ===== Actions de fin de séance v22 ===== */
+.end-session-actions{
+  width:100%;
+  margin-top:20px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.end-session-actions .btn{
+  width:100% !important;
+  min-height:50px;
+  border-radius:10px !important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 </style>
 </head>
 <body>
@@ -656,10 +673,21 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
-function sessionElapsed(s,p){const start=p.startedAt||s.startedAt;if(!start)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-start)}
+function sessionElapsed(s,p){
+  const start=p.startedAt||s.startedAt;
+  if(!start)return 0;
+  const end=p.finishedAt||s.finishedAt||p.pauseStartedAt||Date.now();
+  const paused=Number(p.pauseTotalMs||0);
+  return Math.max(0,end-start-paused);
+}
+function masterElapsed(s){
+  if(!s.startedAt)return 0;
+  const end=s.finishedAt||s.pauseStartedAt||Date.now();
+  return Math.max(0,end-s.startedAt-Number(s.pauseTotalMs||0));
+}
 function startAll(c){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
@@ -674,6 +702,42 @@ function startAll(c){
   save();render();
 }
 
+
+function pauseRace(c){
+  const s=c&&c.activeSession;
+  if(!s||s.mode!=="race"||s.status!=="running")return;
+  const now=Date.now();
+  s.status="paused";
+  s.pauseStartedAt=now;
+  s.participants.forEach(p=>{
+    if(p.startedAt&&!p.finishedAt)p.pauseStartedAt=now;
+  });
+  save();
+  render();
+}
+
+function resumeRace(c){
+  const s=c&&c.activeSession;
+  if(!s||s.mode!=="race"||s.status!=="paused")return;
+  const now=Date.now();
+
+  if(s.pauseStartedAt){
+    s.pauseTotalMs=Number(s.pauseTotalMs||0)+(now-s.pauseStartedAt);
+    s.pauseStartedAt=null;
+  }
+
+  s.participants.forEach(p=>{
+    if(p.pauseStartedAt){
+      p.pauseTotalMs=Number(p.pauseTotalMs||0)+(now-p.pauseStartedAt);
+      p.pauseStartedAt=null;
+    }
+  });
+
+  s.status="running";
+  save();
+  render();
+}
+
 function startParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished"||p.finishedAt||p.startedAt)return;
   const now=Date.now();
@@ -686,6 +750,8 @@ function startParticipant(c,p){
 function tapParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
+
+  if(s.mode==="race"&&s.status==="paused")return;
 
   if(s.mode==="timed"){
     if(!p.startedAt){
@@ -720,8 +786,8 @@ function tapParticipant(c,p){
   if(p.finishedAt)return;
 
   if(s.mode==="race"){
+    p.elapsedMs=sessionElapsed(s,p);
     p.finishedAt=now;
-    p.elapsedMs=now-p.startedAt;
     if(s.participants.every(x=>x.finishedAt))finishSession(c);else{save();render()}
     return;
   }
@@ -770,6 +836,7 @@ function maybeFinishTimedSession(c){
       p.elapsedMs=durationMs;
     });
     if(!c.history.some(x=>x.id===s.id))c.history.unshift(JSON.parse(JSON.stringify(s)));
+    c.setup.sessionName="";
     save();
     render();
   }
@@ -810,23 +877,105 @@ function saveSessionAndBack(c){
   }
 
   c.activeSession=null;
+  c.setup.sessionName="";
   save();
   location.hash=`#/setup/${c.id}`;
 }
 
 function finishSession(c){
-  const s=c.activeSession;if(!s||s.status==="finished")return;const now=Date.now();s.finishedAt=now;s.status="finished";
-  if(s.mode==="race")s.participants.forEach(p=>{if(!p.finishedAt){p.finishedAt=now;p.elapsedMs=p.startedAt?now-p.startedAt:0}});
-  if(!c.history.some(x=>x.id===s.id))c.history.unshift(JSON.parse(JSON.stringify(s)));save();render();
+  const s=c.activeSession;
+  if(!s||s.status==="finished")return;
+
+  const now=Date.now();
+
+  // If race was paused, close the current pause interval first.
+  if(s.mode==="race"&&s.status==="paused"){
+    if(s.pauseStartedAt){
+      s.pauseTotalMs=Number(s.pauseTotalMs||0)+(now-s.pauseStartedAt);
+      s.pauseStartedAt=null;
+    }
+    s.participants.forEach(p=>{
+      if(p.pauseStartedAt){
+        p.pauseTotalMs=Number(p.pauseTotalMs||0)+(now-p.pauseStartedAt);
+        p.pauseStartedAt=null;
+      }
+    });
+  }
+
+  s.finishedAt=now;
+  s.status="finished";
+
+  if(s.mode==="race"){
+    s.participants.forEach(p=>{
+      if(!p.finishedAt){
+        p.elapsedMs=sessionElapsed(s,p);
+        p.finishedAt=now;
+      }
+    });
+  }
+
+  if(!c.history.some(x=>x.id===s.id)){
+    c.history.unshift(JSON.parse(JSON.stringify(s)));
+  }else{
+    const idx=c.history.findIndex(x=>x.id===s.id);
+    c.history[idx]=JSON.parse(JSON.stringify(s));
+  }
+
+  c.setup.sessionName="";
+  save();
+  render();
 }
 
 
 function resultsView(c){
   if(!c)return homeView();
 
-  const sessions=(c.history||[]).filter(s=>s.mode==="laps"||s.mode==="timed");
+  const sessions=(c.history||[]).filter(s=>s.mode==="race"||s.mode==="laps"||s.mode==="timed");
 
   const blocks=sessions.map((s,si)=>{
+
+    if(s.mode==="race"){
+      const rows=(s.participants||[]).map(p=>{
+        const total=Number(p.elapsedMs||0) || (
+          p.finishedAt&&p.startedAt
+            ? Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0))
+            : 0
+        );
+
+        return `<tr>
+          <td>${esc(p.first)} ${esc(p.last)}</td>
+          <td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>
+          <td class="num"><b>${total?fmt(total):"—"}</b></td>
+        </tr>`;
+      }).join("");
+
+      return `<section class="results-session">
+        <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+        <div class="meta">
+          Course · ${dateFR(s.startedAt||s.createdAt)}
+          ${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""}
+        </div>
+
+        <div class="results-table-wrap">
+          <table class="results-table" style="min-width:480px">
+            <thead>
+              <tr>
+                <th>Élève</th>
+                <th>Sexe</th>
+                <th class="num">Temps</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div class="bar">
+          <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
+            Télécharger CSV
+          </button>
+        </div>
+      </section>`;
+    }
 
     if(s.mode==="timed"){
       const rows=(s.participants||[]).map(p=>{
@@ -1007,8 +1156,22 @@ function timerView(c){
     </div>`
   }).join("");
   return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
-  <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
-  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><div class="end-session-actions">
+  <div class="timer-controls">
+    ${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}
+    ${s.mode==="race"&&s.status==="running"?`<button class="btn big" data-act="pauseRace" data-c="${c.id}">⏸ Pause chrono</button>`:""}
+    ${s.mode==="race"&&s.status==="paused"?`<button class="btn pri big" data-act="resumeRace" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
+    ${s.mode!=="race"&&s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}
+    ${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}
+  </div>
+  <div class="race-grid">${cards}</div><p class="helper-text">${
+    s.mode==="laps"
+      ?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
+      :s.mode==="timed"
+        ?`Le chrono s’arrête automatiquement après ${s.durationMin||12} min. Pendant la course, chaque clic sur un élève ajoute un tour.`
+        :s.status==="paused"
+          ?"Chrono en pause. Appuie sur « Reprendre le chrono » pour continuer sans compter le temps de pause."
+          :"À l’arrivée d’un élève, touche sa carte pour enregistrer son temps."
+  }</p><div class="bar"><div class="end-session-actions">
     ${s.status==="finished"?`
       <button class="btn pri big" data-act="saveSessionBack" data-c="${c.id}">
         Enregistrer les données
@@ -1016,7 +1179,7 @@ function timerView(c){
     <button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button>
   </div></div>`;
 }
-function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;if(s.mode==="timed"&&s.status==="running"){maybeFinishTimedSession(c);if(c.activeSession.status==="finished")return;}const m=$("masterTime");if(m){let ms=s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0;if(s.mode==="timed")ms=Math.min(ms,(s.durationMin||12)*60*1000);m.textContent=fmt(ms);}document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
+function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;if(s.mode==="timed"&&s.status==="running"){maybeFinishTimedSession(c);if(c.activeSession.status==="finished")return;}const m=$("masterTime");if(m){let ms=masterElapsed(s);if(s.mode==="timed")ms=Math.min(ms,(s.durationMin||12)*60*1000);m.textContent=fmt(ms);}document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
 setInterval(tick,100);
 
 function show(html){return new Promise(res=>{const d=$("dlg");d.innerHTML=html;d.returnValue="";d.addEventListener("close",()=>{const f=d.querySelector("form");res({v:d.returnValue,f:f?new FormData(f):null})},{once:true});d.showModal()})}
@@ -1091,9 +1254,11 @@ $("app").addEventListener("click",async e=>{
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
+  else if(act==="pauseRace")pauseRace(c)
+  else if(act==="resumeRace")resumeRace(c)
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
-  else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
-  else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
+  else if(act==="finishSession")finishSession(c)
+  else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!c.setup.durationMin||c.setup.durationMin<=0)c.setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
     const sess=c.history[idx];
@@ -1109,9 +1274,7 @@ $("app").addEventListener("click",async e=>{
     }
   }
   else if(act==="saveSessionBack"){
-    if(await confirmBox("Enregistrer cette séance et revenir aux réglages ?","Enregistrer")){
-      saveSessionAndBack(c);
-    }
+    saveSessionAndBack(c);
   }
   else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
 });
