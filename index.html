@@ -556,6 +556,56 @@ dialog select{
   box-shadow:6px 0 8px -8px rgba(0,0,0,.35);
 }
 
+
+/* ===== Taille responsive des cartes v25 ===== */
+#app.timer-wide{
+  max-width:1280px;
+}
+.timer-size-control{
+  margin:10px 0 16px;
+  padding:10px 12px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--card);
+}
+.timer-size-control .size-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.timer-size-control label{
+  font-size:13px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.timer-size-control input[type="range"]{
+  width:100%;
+}
+.timer-size-control .size-value{
+  min-width:48px;
+  text-align:right;
+  font-size:12px;
+  color:var(--mut);
+}
+.race-grid{
+  grid-template-columns:repeat(auto-fit,minmax(var(--card-min,140px),1fr)) !important;
+  gap:8px;
+}
+.race-card{
+  max-width:220px;
+  width:100%;
+  justify-self:center;
+}
+@media(max-width:520px){
+  #app.timer-wide{
+    padding-left:8px;
+    padding-right:8px;
+  }
+  .race-grid{
+    gap:6px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -567,6 +617,22 @@ dialog select{
 
 const KEY="classtimer.endurance.v1",BACKUP_KEY="classtimer.endurance.v1.backup";
 let deferredInstallPrompt=null;
+const CARD_SIZE_KEY="classtimer.cardSize.v1";
+const CARD_MIN_PX=96;
+const CARD_MAX_PX=220;
+const CARD_DEFAULT_PX=140;
+
+function getCardSize(){
+  const v=parseInt(localStorage.getItem(CARD_SIZE_KEY)||CARD_DEFAULT_PX,10);
+  return Math.min(CARD_MAX_PX,Math.max(CARD_MIN_PX,Number.isFinite(v)?v:CARD_DEFAULT_PX));
+}
+function setCardSize(v){
+  const n=Math.min(CARD_MAX_PX,Math.max(CARD_MIN_PX,parseInt(v||CARD_DEFAULT_PX,10)));
+  localStorage.setItem(CARD_SIZE_KEY,String(n));
+  document.documentElement.style.setProperty("--card-min",n+"px");
+  const out=document.getElementById("cardSizeValue");
+  if(out)out.textContent=n+" px";
+}
 
 const $=id=>document.getElementById(id);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
@@ -636,6 +702,8 @@ const saveIndicator=`<div class="save-state" id="saveState"><span class="save-do
 
 function render(){
   applyTheme(); const r=route(),a=$("app");
+  a.classList.toggle("timer-wide",r.page==="timer");
+  setCardSize(getCardSize());
   if(r.page==="home")a.innerHTML=homeView();
   if(r.page==="setup")a.innerHTML=setupView(cls(r.id));if(r.page==="results")a.innerHTML=resultsView(cls(r.id));
   if(r.page==="timer")a.innerHTML=timerView(cls(r.id));
@@ -1148,6 +1216,13 @@ function timerView(c){
     ${s.mode!=="race"&&s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}
     ${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}
   </div>
+  <div class="timer-size-control">
+    <div class="size-row">
+      <label for="cardSizeSlider">Taille des cartes</label>
+      <input id="cardSizeSlider" type="range" min="${CARD_MIN_PX}" max="${CARD_MAX_PX}" step="4" value="${getCardSize()}" data-act="cardSize">
+      <span class="size-value" id="cardSizeValue">${getCardSize()} px</span>
+    </div>
+  </div>
   <div class="race-grid">${cards}</div><p class="helper-text">${
     s.mode==="laps"
       ?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
@@ -1260,6 +1335,13 @@ $("app").addEventListener("click",async e=>{
     }
   }
   else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
+});
+
+$("app").addEventListener("input",e=>{
+  const el=e.target;
+  if(el.dataset.act==="cardSize"){
+    setCardSize(el.value);
+  }
 });
 
 $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
