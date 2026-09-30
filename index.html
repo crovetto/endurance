@@ -477,6 +477,29 @@ dialog select{
   }
 }
 
+
+/* ===== Lisibilité prénom v16 ===== */
+.race-name b{
+  font-size:18px !important;
+  line-height:1.0 !important;
+  font-weight:900 !important;
+  letter-spacing:-0.02em !important;
+}
+.race-name small{
+  font-size:8.5px !important;
+  line-height:1.0 !important;
+  margin-top:3px !important;
+  opacity:.8;
+}
+@media(max-width:430px){
+  .race-name b{
+    font-size:17px !important;
+  }
+  .race-name small{
+    font-size:8px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -783,7 +806,7 @@ function timerView(c){
     }else if(s.mode==="laps"){
       status=finished?"Terminé":started?`Tour ${Math.min(p.laps.length+1,maxLaps)} / ${maxLaps}`:"Toucher pour démarrer";
     }else{
-      status=finished?`Terminé · ${p.laps.length} tour${p.laps.length>1?"s":""}`:started?`${p.laps.length} tour${p.laps.length>1?"s":""}`:"Toucher pour démarrer";
+      status=finished?"Terminé":started?"En cours":"Toucher pour démarrer";
     }
     return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
       <div class="student-number">#${i+1}</div>
