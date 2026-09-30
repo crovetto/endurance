@@ -754,7 +754,7 @@ dialog select{
 }
 .student-result-lap{
   display:grid;
-  grid-template-columns:48px 1fr 1fr;
+  grid-template-columns:42px 1fr 1fr 48px;
   gap:6px;
   align-items:center;
   padding:5px 6px;
@@ -764,7 +764,8 @@ dialog select{
   font-variant-numeric:tabular-nums;
 }
 .student-result-lap span:nth-child(2),
-.student-result-lap span:nth-child(3){
+.student-result-lap span:nth-child(3),
+.student-result-lap span:nth-child(4){
   text-align:right;
 }
 .student-result-lap .lap-label{
@@ -790,7 +791,52 @@ dialog select{
   .student-result-card{padding:9px}
   .student-result-name{font-size:14px}
   .student-result-score{font-size:14px}
-  .student-result-lap{font-size:9px;grid-template-columns:42px 1fr 1fr}
+  .student-result-lap{font-size:9px;grid-template-columns:38px 1fr 1fr 42px}
+}
+
+
+/* ===== Mise en page globale responsive v33 ===== */
+#app{
+  width:100%;
+  max-width:1440px;
+  margin:0 auto;
+  padding:clamp(8px,1.8vw,24px) clamp(8px,2vw,28px) 48px !important;
+}
+#app.timer-wide{
+  max-width:1440px !important;
+}
+.panel,
+.results-session{
+  width:100%;
+}
+@media(max-width:600px){
+  #app{
+    padding-left:8px !important;
+    padding-right:8px !important;
+  }
+}
+
+
+.cards-pagination{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:10px;
+  align-items:center;
+  margin-top:12px;
+}
+.cards-pagination .btn{
+  width:100%;
+}
+.cards-page-info{
+  min-width:90px;
+  text-align:center;
+  color:var(--mut);
+  font-size:12px;
+  font-weight:700;
+}
+.cards-pagination .btn[disabled]{
+  opacity:.45;
+  cursor:default;
 }
 
 </style>
@@ -1402,11 +1448,30 @@ function resultsView(c){
 
 
 
-function studentCardsHtml(c,s){
+
+function cardColumnsForWidth(){
+  const w=Math.max(320,window.innerWidth||320);
+  if(w<500)return 2;
+  if(w<760)return 3;
+  if(w<1050)return 4;
+  if(w<1350)return 5;
+  return 6;
+}
+function cardsPerPage(){
+  return cardColumnsForWidth()*2; // toujours 2 lignes maximum
+}
+
+function studentCardsHtml(c,s,page=0){
   const parts=s.participants||[];
   if(!parts.length)return `<div class="empty">Aucun élève dans cette séance.</div>`;
 
-  return `<div class="student-cards-grid">${parts.map(p=>{
+  const perPage=cardsPerPage();
+  const pageCount=Math.max(1,Math.ceil(parts.length/perPage));
+  page=Math.min(pageCount-1,Math.max(0,Number(page)||0));
+  const startIndex=page*perPage;
+  const shown=parts.slice(startIndex,startIndex+perPage);
+
+  const cards=shown.map(p=>{
     const name=`${esc(p.first)} ${esc(p.last)}`.trim();
 
     if(s.mode==="laps"){
@@ -1417,11 +1482,13 @@ function studentCardsHtml(c,s){
 
       const lapRows=laps.map((l,i)=>{
         const diff=(l.lapTimeMs||0)-avg;
-        totalPts+=lapPointsFromDiffMs(diff);
+        const pts=lapPointsFromDiffMs(diff);
+        totalPts+=pts;
         return `<div class="student-result-lap">
           <span class="lap-label">T${i+1}</span>
           <span>${fmt(l.lapTimeMs)}</span>
           <span>${fmtSigned(diff)}</span>
+          <span><b>${pts}</b></span>
         </div>`;
       }).join("");
 
@@ -1443,6 +1510,9 @@ function studentCardsHtml(c,s){
         </div>
 
         <div class="student-result-laps">
+          <div class="student-result-lap" style="font-weight:800">
+            <span>Tour</span><span>Temps</span><span>Écart</span><span>Pts</span>
+          </div>
           ${lapRows||'<div class="empty">Aucun tour</div>'}
         </div>
       </div>`;
@@ -1478,10 +1548,20 @@ function studentCardsHtml(c,s){
         <div class="student-result-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
       </div>
     </div>`;
-  }).join("")}</div>`;
+  }).join("");
+
+  return `<div>
+    <div class="student-cards-grid">${cards}</div>
+    ${pageCount>1?`
+      <div class="cards-pagination">
+        <button class="btn" data-act="cardsPrev" data-c="${c.id}" data-session="${s.id}" data-page="${page}" ${page<=0?"disabled":""}>‹ Précédent</button>
+        <div class="cards-page-info">Page ${page+1} / ${pageCount}</div>
+        <button class="btn" data-act="cardsNext" data-c="${c.id}" data-session="${s.id}" data-page="${page}" ${page>=pageCount-1?"disabled":""}>Suivant ›</button>
+      </div>`:""}
+  </div>`;
 }
 
-function showResultView(c,sessionId,view){
+function showResultView(c,sessionId,view,page=0){
   const section=document.querySelector(`[data-result-session="${sessionId}"]`);
   const s=(c.history||[]).find(x=>x.id===sessionId);
   if(!section||!s)return;
@@ -1494,7 +1574,8 @@ function showResultView(c,sessionId,view){
     if(tablePanel)tablePanel.hidden=true;
     if(cardsPanel){
       cardsPanel.hidden=false;
-      cardsPanel.innerHTML=studentCardsHtml(c,s);
+      cardsPanel.dataset.page=String(page);
+      cardsPanel.innerHTML=studentCardsHtml(c,s,page);
     }
     if(toggleBtn){
       toggleBtn.textContent="Vue tableau";
@@ -1639,6 +1720,12 @@ $("app").addEventListener("click",async e=>{
     const studentPanel=section?.querySelector('[data-view="student"]');
     showResultView(c,b.dataset.session,studentPanel?.hidden===false?"table":"student");
   }
+  else if(act==="cardsPrev"||act==="cardsNext"){
+    if(b.disabled)return;
+    const cur=parseInt(b.dataset.page||0,10);
+    const next=act==="cardsNext"?cur+1:cur-1;
+    showResultView(c,b.dataset.session,"student",next);
+  }
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
@@ -1772,6 +1859,22 @@ function exportSessionCsv(c,s){
 
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredInstallPrompt=e});
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+
+let cardsResizeTimer=null;
+window.addEventListener("resize",()=>{
+  clearTimeout(cardsResizeTimer);
+  cardsResizeTimer=setTimeout(()=>{
+    document.querySelectorAll('.result-view-panel[data-view="student"]:not([hidden])').forEach(panel=>{
+      const section=panel.closest(".results-session");
+      if(!section)return;
+      const sid=section.dataset.resultSession;
+      const r=route();
+      const c=cls(r.id);
+      if(c&&sid)showResultView(c,sid,"student",0);
+    });
+  },120);
+});
+
 window.addEventListener("hashchange",render);
 window.addEventListener("pagehide",save);
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")save();tick()});
