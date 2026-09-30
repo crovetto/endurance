@@ -504,6 +504,16 @@ dialog select{
 .save-session-bar{
   margin-top:18px;
 }
+
+.end-session-actions{
+  margin-top:20px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.end-session-actions .btn{
+  width:100%;
+}
 </style>
 </head>
 <body>
@@ -998,13 +1008,13 @@ function timerView(c){
   }).join("");
   return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
-  ${s.status==="finished"?`
-  <div class="save-session-bar">
-    <button class="btn pri big" data-act="saveSessionBack" data-c="${c.id}">
-      Enregistrer les données
-    </button>
-  </div>`:""}
-  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
+  <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><div class="end-session-actions">
+    ${s.status==="finished"?`
+      <button class="btn pri big" data-act="saveSessionBack" data-c="${c.id}">
+        Enregistrer les données
+      </button>`:""}
+    <button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button>
+  </div></div>`;
 }
 function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;if(s.mode==="timed"&&s.status==="running"){maybeFinishTimedSession(c);if(c.activeSession.status==="finished")return;}const m=$("masterTime");if(m){let ms=s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0;if(s.mode==="timed")ms=Math.min(ms,(s.durationMin||12)*60*1000);m.textContent=fmt(ms);}document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
 setInterval(tick,100);
