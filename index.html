@@ -557,7 +557,7 @@ dialog select{
 }
 
 
-/* ===== Taille responsive des cartes v25 ===== */
+/* ===== Taille responsive des cartes v26 ===== */
 #app.timer-wide{
   max-width:1280px;
 }
@@ -580,6 +580,7 @@ dialog select{
 }
 .timer-size-control input[type="range"]{
   width:100%;
+  accent-color:var(--pri);
 }
 .timer-size-control .size-value{
   min-width:48px;
@@ -587,14 +588,20 @@ dialog select{
   font-size:12px;
   color:var(--mut);
 }
+
+/* Taille réelle contrôlée en direct par le slider */
 .race-grid{
-  grid-template-columns:repeat(auto-fit,minmax(var(--card-min,140px),1fr)) !important;
-  gap:8px;
+  display:grid !important;
+  grid-template-columns:repeat(auto-fit, var(--card-size,140px)) !important;
+  justify-content:center;
+  gap:6px !important;
 }
 .race-card{
-  max-width:220px;
-  width:100%;
+  width:var(--card-size,140px) !important;
+  max-width:none !important;
+  min-width:0 !important;
   justify-self:center;
+  transition:width .08s linear, height .08s linear;
 }
 @media(max-width:520px){
   #app.timer-wide{
@@ -602,10 +609,9 @@ dialog select{
     padding-right:8px;
   }
   .race-grid{
-    gap:6px;
+    gap:6px !important;
   }
 }
-
 </style>
 </head>
 <body>
@@ -629,7 +635,7 @@ function getCardSize(){
 function setCardSize(v){
   const n=Math.min(CARD_MAX_PX,Math.max(CARD_MIN_PX,parseInt(v||CARD_DEFAULT_PX,10)));
   localStorage.setItem(CARD_SIZE_KEY,String(n));
-  document.documentElement.style.setProperty("--card-min",n+"px");
+  document.documentElement.style.setProperty("--card-size",n+"px");
   const out=document.getElementById("cardSizeValue");
   if(out)out.textContent=n+" px";
 }
@@ -1219,7 +1225,7 @@ function timerView(c){
   <div class="timer-size-control">
     <div class="size-row">
       <label for="cardSizeSlider">Taille des cartes</label>
-      <input id="cardSizeSlider" type="range" min="${CARD_MIN_PX}" max="${CARD_MAX_PX}" step="4" value="${getCardSize()}" data-act="cardSize">
+      <input id="cardSizeSlider" type="range" min="${CARD_MIN_PX}" max="${CARD_MAX_PX}" step="1" value="${getCardSize()}" data-act="cardSize">
       <span class="size-value" id="cardSizeValue">${getCardSize()} px</span>
     </div>
   </div>
