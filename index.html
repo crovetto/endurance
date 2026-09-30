@@ -634,6 +634,197 @@ dialog select{
   font-size:clamp(8px, calc(var(--card-size,140px) * 0.05), 12px) !important;
 }
 
+
+/* ===== Résultats plein écran v28 ===== */
+.results-session{
+  position:relative;
+}
+.results-session-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:4px;
+}
+.results-session-head h2{
+  margin:0;
+}
+.results-expand-btn{
+  width:38px;
+  height:38px;
+  min-width:38px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--card);
+  color:var(--tx);
+  font-size:20px;
+  line-height:1;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.results-expand-btn:active{
+  transform:scale(.96);
+}
+.results-session:fullscreen{
+  background:var(--bg);
+  color:var(--tx);
+  padding:18px;
+  overflow:auto;
+}
+.results-session:fullscreen .results-table-wrap{
+  max-height:calc(100vh - 150px);
+}
+.results-session.result-expanded-fallback{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  background:var(--bg);
+  padding:18px;
+  overflow:auto;
+}
+.results-session.result-expanded-fallback .results-table-wrap{
+  max-height:calc(100vh - 150px);
+}
+
+
+/* ===== Vue élève v29 ===== */
+.student-view-overlay{
+  position:fixed;
+  inset:0;
+  z-index:10000;
+  background:var(--bg);
+  color:var(--tx);
+  overflow:auto;
+  padding:18px;
+}
+.student-view-shell{
+  max-width:980px;
+  margin:0 auto;
+}
+.student-view-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:16px;
+}
+.student-view-top h2{
+  margin:0;
+  font-size:clamp(28px,5vw,44px);
+  line-height:1;
+}
+.student-view-close{
+  width:44px;
+  height:44px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:var(--card);
+  color:var(--tx);
+  font-size:22px;
+}
+.student-score{
+  margin:8px 0 18px;
+  font-size:clamp(26px,5vw,42px);
+  font-weight:900;
+}
+.student-score small{
+  display:block;
+  margin-top:4px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--mut);
+}
+.student-kpis{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:18px;
+}
+.student-kpi{
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--card);
+}
+.student-kpi span{
+  display:block;
+  color:var(--mut);
+  font-size:12px;
+  margin-bottom:4px;
+}
+.student-kpi b{
+  font-size:clamp(18px,3vw,26px);
+}
+.student-chart-card{
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--card);
+}
+.student-chart-title{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:baseline;
+  margin-bottom:8px;
+}
+.student-chart-title b{
+  font-size:18px;
+}
+.student-chart-title small{
+  font-size:12px;
+}
+.student-chart{
+  width:100%;
+  height:auto;
+  display:block;
+  overflow:visible;
+}
+.student-points-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+.student-point-chip{
+  padding:7px 10px;
+  border-radius:999px;
+  background:var(--bg);
+  border:1px solid var(--line);
+  font-size:12px;
+  font-weight:700;
+}
+.student-nav{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:18px;
+}
+.student-nav .btn{
+  width:100%;
+}
+.student-empty-chart{
+  padding:28px 10px;
+  text-align:center;
+  color:var(--mut);
+}
+.result-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:12px;
+}
+.result-actions .btn{
+  flex:1 1 180px;
+}
+@media(max-width:620px){
+  .student-kpis{
+    grid-template-columns:1fr;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1038,8 +1229,11 @@ function resultsView(c){
         </tr>`;
       }).join("");
 
-      return `<section class="results-session">
-        <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+      return `<section class="results-session" data-result-session="${s.id}">
+        <div class="results-session-head">
+          <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+        </div>
         <div class="meta">
           Course · ${dateFR(s.startedAt||s.createdAt)}
           ${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""}
@@ -1058,7 +1252,10 @@ function resultsView(c){
           </table>
         </div>
 
-        <div class="bar">
+        <div class="result-actions">
+          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+            Vue élève
+          </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
@@ -1083,8 +1280,11 @@ function resultsView(c){
         </tr>`;
       }).join("");
 
-      return `<section class="results-session">
-        <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+      return `<section class="results-session" data-result-session="${s.id}">
+        <div class="results-session-head">
+          <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+        </div>
         <div class="meta">
           Temps imposé · ${s.durationMin||12} min
           · ${dateFR(s.startedAt||s.createdAt)}
@@ -1105,7 +1305,10 @@ function resultsView(c){
           </table>
         </div>
 
-        <div class="bar">
+        <div class="result-actions">
+          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+            Vue élève
+          </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
@@ -1169,8 +1372,11 @@ function resultsView(c){
       </tr>`;
     }).join("");
 
-    return `<section class="results-session">
-      <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+    return `<section class="results-session" data-result-session="${s.id}">
+        <div class="results-session-head">
+          <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
+          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+        </div>
       <div class="meta">
         Tours
         · ${dateFR(s.startedAt||s.createdAt)}
@@ -1194,11 +1400,14 @@ function resultsView(c){
         </table>
       </div>
 
-      <div class="bar">
-        <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
-          Télécharger CSV
-        </button>
-      </div>
+      <div class="result-actions">
+          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+            Vue élève
+          </button>
+          <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
+            Télécharger CSV
+          </button>
+        </div>
     </section>`;
   }).join("");
 
@@ -1217,6 +1426,233 @@ function resultsView(c){
     ${blocks || `<div class="result-empty">Aucun résultat enregistré pour cette classe.</div>`}
   `;
 }
+
+
+
+function sec1(ms){
+  return (Math.max(0,Number(ms)||0)/1000).toFixed(1).replace(".",",")+" s";
+}
+
+function studentChartSvg(p){
+  const laps=(p.laps||[]);
+  if(!laps.length)return `<div class="student-empty-chart">Aucun tour enregistré.</div>`;
+
+  const avg=averageLapMs(p);
+  const vals=laps.map(l=>Math.max(0,Number(l.lapTimeMs)||0));
+  const maxV=Math.max(...vals,avg,1000);
+  const minV=Math.min(...vals,avg);
+  const pad=28;
+  const w=760;
+  const h=300;
+  const innerW=w-pad*2;
+  const innerH=h-60;
+  const range=Math.max(1,maxV-Math.min(0,minV));
+  const x=i=>pad+(laps.length===1?innerW/2:(i*innerW/(laps.length-1)));
+  const y=v=>18+innerH-(v/maxV)*innerH;
+
+  const avgY=y(avg);
+  let grid="";
+  for(let i=0;i<4;i++){
+    const gy=18+i*(innerH/3);
+    grid+=`<line x1="${pad}" y1="${gy}" x2="${w-pad}" y2="${gy}" stroke="currentColor" opacity=".08" stroke-width="1"/>`;
+  }
+
+  const linePts=laps.map((l,i)=>`${x(i)},${y(l.lapTimeMs)}`).join(" ");
+  const dots=laps.map((l,i)=>{
+    const diff=(l.lapTimeMs||0)-avg;
+    const pts=lapPointsFromDiffMs(diff);
+    const fill=pts>=8?"#22c55e":pts>=5?"#f59e0b":"#ef4444";
+    return `<g>
+      <circle cx="${x(i)}" cy="${y(l.lapTimeMs)}" r="7" fill="${fill}" stroke="white" stroke-width="2"/>
+      <text x="${x(i)}" y="${h-10}" text-anchor="middle" font-size="12" fill="currentColor">T${i+1}</text>
+    </g>`;
+  }).join("");
+
+  return `<svg class="student-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Temps par tour">
+    ${grid}
+    <line x1="${pad}" y1="${avgY}" x2="${w-pad}" y2="${avgY}" stroke="#64748b" stroke-width="2" stroke-dasharray="7 6"/>
+    <text x="${w-pad}" y="${Math.max(14,avgY-6)}" text-anchor="end" font-size="12" fill="#64748b">Moyenne ${sec1(avg)}</text>
+    <polyline points="${linePts}" fill="none" stroke="currentColor" opacity=".42" stroke-width="3"/>
+    ${dots}
+  </svg>`;
+}
+
+function studentPerformanceHtml(c,s,p,index){
+  const totalStudents=(s.participants||[]).length;
+  const name=`${esc(p.first)} ${esc(p.last)}`.trim();
+
+  if(s.mode==="laps"){
+    const laps=p.laps||[];
+    const avg=averageLapMs(p);
+    const maxLaps=Math.max(1,parseInt(s.maxLaps||laps.length||1,10));
+    const totalPts=laps.reduce((sum,l)=>sum+lapPointsFromDiffMs((l.lapTimeMs||0)-avg),0);
+    const maxPts=maxLaps*10;
+    const regularity=maxPts?Math.round(totalPts/maxPts*100):0;
+    const total=p.elapsedMs||(
+      p.finishedAt&&p.startedAt
+        ? Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0))
+        : 0
+    );
+
+    const chips=laps.map((l,i)=>{
+      const pts=lapPointsFromDiffMs((l.lapTimeMs||0)-avg);
+      return `<span class="student-point-chip">T${i+1} · ${pts} pt${pts>1?"s":""}</span>`;
+    }).join("");
+
+    return `<div class="student-view-shell">
+      <div class="student-view-top">
+        <div>
+          <h2>${name}</h2>
+          <small>${esc(s.name||"Séance")} · Tours</small>
+        </div>
+        <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+      </div>
+
+      <div class="student-score">${totalPts} / ${maxPts} points
+        <small>${index+1} / ${totalStudents}</small>
+      </div>
+
+      <div class="student-kpis">
+        <div class="student-kpi"><span>Temps moyen</span><b>${laps.length?sec1(avg):"—"}</b></div>
+        <div class="student-kpi"><span>Temps total</span><b>${total?fmt(total):"—"}</b></div>
+        <div class="student-kpi"><span>Régularité</span><b>${regularity} %</b></div>
+      </div>
+
+      <div class="student-chart-card">
+        <div class="student-chart-title">
+          <b>Performance par tour</b>
+          <small>La ligne pointillée = moyenne</small>
+        </div>
+        ${studentChartSvg(p)}
+        <div class="student-points-row">${chips}</div>
+      </div>
+
+      <div class="student-nav">
+        <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+        <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+      </div>
+    </div>`;
+  }
+
+  if(s.mode==="timed"){
+    const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt):0);
+    return `<div class="student-view-shell">
+      <div class="student-view-top">
+        <div><h2>${name}</h2><small>${esc(s.name||"Séance")} · Temps imposé</small></div>
+        <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+      </div>
+      <div class="student-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}
+        <small>${index+1} / ${totalStudents}</small>
+      </div>
+      <div class="student-kpis">
+        <div class="student-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
+        <div class="student-kpi"><span>Tours</span><b>${(p.laps||[]).length}</b></div>
+        <div class="student-kpi"><span>Distance supplémentaire</span><b>${Number(p.extraDistanceM||0)} m</b></div>
+      </div>
+      <div class="student-nav">
+        <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+        <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+      </div>
+    </div>`;
+  }
+
+  const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0)):0);
+  return `<div class="student-view-shell">
+    <div class="student-view-top">
+      <div><h2>${name}</h2><small>${esc(s.name||"Séance")} · Course</small></div>
+      <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+    </div>
+    <div class="student-score">${total?fmt(total):"—"}
+      <small>${index+1} / ${totalStudents}</small>
+    </div>
+    <div class="student-kpis">
+      <div class="student-kpi"><span>Temps</span><b>${total?fmt(total):"—"}</b></div>
+      <div class="student-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
+      <div class="student-kpi"><span>Statut</span><b>${p.finishedAt?"Terminé":"—"}</b></div>
+    </div>
+    <div class="student-nav">
+      <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+      <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+    </div>
+  </div>`;
+}
+
+function openStudentView(c,sessionId,index=0){
+  const s=(c.history||[]).find(x=>x.id===sessionId);
+  if(!s||!(s.participants||[]).length)return;
+  const n=s.participants.length;
+  index=((Number(index)||0)%n+n)%n;
+  let overlay=document.getElementById("studentViewOverlay");
+  if(!overlay){
+    overlay=document.createElement("div");
+    overlay.id="studentViewOverlay";
+    overlay.className="student-view-overlay";
+    document.body.appendChild(overlay);
+  }
+  overlay.dataset.c=c.id;
+  overlay.dataset.session=s.id;
+  overlay.dataset.index=String(index);
+  overlay.innerHTML=studentPerformanceHtml(c,s,s.participants[index],index);
+  document.body.style.overflow="hidden";
+}
+
+function closeStudentView(){
+  const overlay=document.getElementById("studentViewOverlay");
+  if(overlay)overlay.remove();
+  document.body.style.overflow="";
+}
+
+async function toggleResultFullscreen(sessionId){
+  const el=document.querySelector(`[data-result-session="${sessionId}"]`);
+  if(!el)return;
+
+  const nativeOpen=document.fullscreenElement===el;
+  const fallbackOpen=el.classList.contains("result-expanded-fallback");
+
+  if(nativeOpen){
+    if(document.exitFullscreen)await document.exitFullscreen();
+    return;
+  }
+
+  if(fallbackOpen){
+    el.classList.remove("result-expanded-fallback");
+    document.body.style.overflow="";
+    const btn=el.querySelector(".results-expand-btn");
+    if(btn){
+      btn.textContent="⛶";
+      btn.title="Agrandir";
+      btn.setAttribute("aria-label","Agrandir les résultats");
+    }
+    return;
+  }
+
+  if(el.requestFullscreen){
+    try{
+      await el.requestFullscreen();
+      return;
+    }catch(_){}
+  }
+
+  el.classList.add("result-expanded-fallback");
+  document.body.style.overflow="hidden";
+  const btn=el.querySelector(".results-expand-btn");
+  if(btn){
+    btn.textContent="✕";
+    btn.title="Réduire";
+    btn.setAttribute("aria-label","Réduire les résultats");
+  }
+}
+
+document.addEventListener("fullscreenchange",()=>{
+  document.querySelectorAll(".results-expand-btn").forEach(btn=>{
+    const section=btn.closest(".results-session");
+    const open=document.fullscreenElement===section;
+    btn.textContent=open?"✕":"⛶";
+    btn.title=open?"Réduire":"Agrandir";
+    btn.setAttribute("aria-label",open?"Réduire les résultats":"Agrandir les résultats");
+  });
+  if(!document.fullscreenElement)document.body.style.overflow="";
+});
 
 function timerView(c){
   if(!c||!c.activeSession)return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c?.id||""}">‹ Réglages</a><div class="empty">Aucune séance préparée.</div>`;
@@ -1289,6 +1725,22 @@ $("app").addEventListener("click",async e=>{
   else if(act==="install"){if(deferredInstallPrompt){deferredInstallPrompt.prompt();await deferredInstallPrompt.userChoice;deferredInstallPrompt=null}else alert("iPhone/iPad : Safari → Partager → Sur l’écran d’accueil. Android/Chrome : menu → Installer l’application.")}
   else if(act==="openSetup")location.hash=`#/setup/${b.dataset.c}`
   else if(act==="openResults")location.hash=`#/results/${b.dataset.c}`
+  else if(act==="toggleResultFullscreen")toggleResultFullscreen(b.dataset.session)
+  else if(act==="openStudentView"){
+    openStudentView(c,b.dataset.session,0);
+  }
+  else if(act==="closeStudentView"){
+    closeStudentView();
+  }
+  else if(act==="studentPrev"||act==="studentNext"){
+    const sessionId=b.dataset.session;
+    const s=(c.history||[]).find(x=>x.id===sessionId);
+    if(s&&s.participants&&s.participants.length){
+      const cur=parseInt(b.dataset.index||0,10);
+      const next=act==="studentNext"?cur+1:cur-1;
+      openStudentView(c,sessionId,next);
+    }
+  }
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
@@ -1377,6 +1829,28 @@ $("app").addEventListener("input",e=>{
   const el=e.target;
   if(el.dataset.act==="cardSize"){
     setCardSize(el.value);
+  }
+});
+
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("#studentViewOverlay [data-act]");
+  if(!b)return;
+  const act=b.dataset.act;
+  const c=cls(b.dataset.c||document.getElementById("studentViewOverlay")?.dataset.c);
+  if(act==="closeStudentView"){
+    closeStudentView();
+    return;
+  }
+  if(!c)return;
+  if(act==="studentPrev"||act==="studentNext"){
+    const sessionId=b.dataset.session;
+    const s=(c.history||[]).find(x=>x.id===sessionId);
+    if(s&&s.participants&&s.participants.length){
+      const cur=parseInt(b.dataset.index||0,10);
+      const next=act==="studentNext"?cur+1:cur-1;
+      openStudentView(c,sessionId,next);
+    }
   }
 });
 
