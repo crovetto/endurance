@@ -450,6 +450,12 @@ dialog select{
   padding:0 12px;
   font:inherit;
 }
+
+.timed-settings{margin-top:12px}
+.timed-settings span{display:block;margin-bottom:6px;font-size:13px;font-weight:700}
+.timed-settings input{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--tx);padding:0 12px;font:inherit}
+.extra-distance{margin-top:5px;width:100%}
+.extra-distance select{width:100%;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--tx);font-size:11px;padding:4px}
 </style>
 </head>
 <body>
@@ -498,7 +504,7 @@ const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
 function normClass(c){
   const setup=c.setup||{mode:"race",distance:"",distanceUnit:"m",maxLaps:1};
-  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;if(typeof setup.sessionName!=="string")setup.sessionName="";
+  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;if(typeof setup.sessionName!=="string")setup.sessionName="";if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;
   return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup,activeSession:c.activeSession||null}
 }
 function normState(s){if(!s||!Array.isArray(s.classes))return null;s.classes=s.classes.map(normClass);return s}
@@ -507,7 +513,7 @@ function load(){
   let s=parse(KEY)||parse(BACKUP_KEY);
   if(s)return s;
   for(const k of ["classtimer.v2","classtimer.v1"]){
-    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,sex:x.sex||"",selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1,sessionName:""},activeSession:null}));return l}
+    const l=parse(k); if(l){l.classes=l.classes.map(c=>normClass({...c,students:(c.students||[]).map(x=>({id:x.id,first:x.first,last:x.last,sex:x.sex||"",selected:true})),setup:{mode:"race",distance:"",distanceUnit:"m",maxLaps:1,sessionName:"",durationMin:12},activeSession:null}));return l}
   }
   return{theme:null,classes:[]};
 }
@@ -556,9 +562,9 @@ function setupView(c){
   </div>
   <h2>Type de chrono</h2><div class="mode-switch">
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
-  <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label></div>
+  <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label><label class="mode-card ${c.setup.mode==="timed"?"active":""}"><input type="radio" name="mode" value="timed" data-act="mode" data-c="${c.id}" ${c.setup.mode==="timed"?"checked":""}><b>Temps imposé</b><small>Ex. 12 minutes, arrêt automatique.</small></label></div>
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
-  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}
+  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
   </section>
   <div class="bar">
     <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Ajouter / démarrer une séance</button>
@@ -592,7 +598,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){const start=p.startedAt||s.startedAt;if(!start)return 0;return Math.max(0,(p.finishedAt||s.finishedAt||Date.now())-start)}
@@ -622,6 +628,8 @@ function startParticipant(c,p){
 function tapParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
+
+  if(s.mode==="timed"){if(!p.startedAt)startParticipant(c,p);return;}
 
   // Avant démarrage : toucher une carte démarre uniquement cet élève
   if(!p.startedAt){
@@ -663,6 +671,25 @@ function tapParticipant(c,p){
   if(s.participants.every(x=>x.finishedAt)){
     finishSession(c);
   }else{
+    save();
+    render();
+  }
+}
+
+function maybeFinishTimedSession(c){
+  const s=c&&c.activeSession;
+  if(!s||s.mode!=="timed"||s.status!=="running"||!s.startedAt)return;
+  const durationMs=Math.max(1,Number(s.durationMin)||12)*60*1000;
+  if(Date.now()-s.startedAt>=durationMs){
+    const end=s.startedAt+durationMs;
+    s.finishedAt=end;
+    s.status="finished";
+    s.participants.forEach(p=>{
+      if(!p.startedAt)p.startedAt=s.startedAt;
+      p.finishedAt=end;
+      p.elapsedMs=durationMs;
+    });
+    if(!c.history.some(x=>x.id===s.id))c.history.unshift(JSON.parse(JSON.stringify(s)));
     save();
     render();
   }
@@ -710,22 +737,24 @@ function timerView(c){
     let status="";
     if(s.mode==="race"){
       status=finished?"Terminé":started?"Toucher à l'arrivée":"Toucher pour démarrer";
-    }else{
+    }else if(s.mode==="laps"){
       status=finished?"Terminé":started?`Tour ${Math.min(p.laps.length+1,maxLaps)} / ${maxLaps}`:"Toucher pour démarrer";
+    }else{
+      status=finished?"Terminé":started?"En cours":"Toucher pour démarrer";
     }
     return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
       <div class="student-number">#${i+1}</div>
       <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}${p.sex?` · ${p.sex}`:""}</small></div>
       <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
       <div class="race-status">${status}</div>
-      ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}
+      ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance"><select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}</select></div>`:""}
     </div>`
   }).join("");
-  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
+  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}${s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}</div>
   <div class="race-grid">${cards}</div><p class="helper-text">${s.mode==="laps"?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement.":"À l'arrivée d'un élève, touche sa carte pour enregistrer son temps."}</p><div class="bar"><button class="btn" data-act="csvSession" data-c="${c.id}">Télécharger CSV</button></div>`;
 }
-function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;const m=$("masterTime");if(m)m.textContent=fmt(s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0);document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
+function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c&&c.activeSession;if(!s)return;if(s.mode==="timed"&&s.status==="running"){maybeFinishTimedSession(c);if(c.activeSession.status==="finished")return;}const m=$("masterTime");if(m){let ms=s.startedAt?Math.max(0,(s.finishedAt||Date.now())-s.startedAt):0;if(s.mode==="timed")ms=Math.min(ms,(s.durationMin||12)*60*1000);m.textContent=fmt(ms);}document.querySelectorAll("[data-time-p]").forEach(e=>{const p=s.participants.find(x=>x.studentId===e.dataset.timeP);if(p)e.textContent=fmt(sessionElapsed(s,p))})}
 setInterval(tick,100);
 
 function show(html){return new Promise(res=>{const d=$("dlg");d.innerHTML=html;d.returnValue="";d.addEventListener("close",()=>{const f=d.querySelector("form");res({v:d.returnValue,f:f?new FormData(f):null})},{once:true});d.showModal()})}
@@ -798,11 +827,11 @@ $("app").addEventListener("click",async e=>{
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
-  else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
+  else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession"){if(await confirmBox("Terminer la séance pour tous ?","Terminer"))finishSession(c)}
-  else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";save();location.hash=`#/setup/${c.id}`}
+  else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
     const sess=c.history[idx];
@@ -820,8 +849,8 @@ $("app").addEventListener("click",async e=>{
   else if(act==="csvSession")exportSessionCsv(c,c.activeSession)
 });
 
-$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
-$("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}});
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
+$("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}});
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
@@ -829,6 +858,12 @@ function exportSessionCsv(c,s){
   if(s.mode==="race"){
     rows=[["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
     s.participants.forEach(p=>rows.push([c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
+  }else if(s.mode==="timed"){
+    rows=[["Classe","Nom séance","Date","Mode","Durée prévue (min)","Prénom","Nom","Sexe","Temps","Distance supplémentaire (m)"]];
+    s.participants.forEach(p=>rows.push([
+      c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.durationMin||12,p.first,p.last,
+      p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),p.extraDistanceM||0
+    ]));
   }else{
     const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),10));
     const header=["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe"];
