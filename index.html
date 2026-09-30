@@ -689,26 +689,108 @@ dialog select{
 }
 
 
-/* ===== Vue élève intégrée v31 ===== */
+
+/* ===== Vue cartes élèves v32 ===== */
 .result-view-panel[hidden]{display:none!important}
-.student-inline{margin-top:14px}
-.student-inline-card{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:16px}
-.student-inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
-.student-inline-name{font-size:clamp(22px,4vw,32px);font-weight:900;line-height:1.05}
-.student-inline-score{font-size:clamp(22px,4vw,30px);font-weight:900;white-space:nowrap}
-.student-inline-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.student-inline-kpi{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px}
-.student-inline-kpi span{display:block;color:var(--mut);font-size:11px;margin-bottom:3px}
-.student-inline-kpi b{font-size:18px}
-.student-inline-laps{display:grid;gap:6px}
-.student-inline-lap{display:grid;grid-template-columns:72px 1fr 1fr 70px;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:13px}
-.student-inline-lap .lap-label{font-weight:800}
-.student-inline-lap span:not(.lap-label){text-align:right;font-variant-numeric:tabular-nums}
-.student-inline-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-.student-inline-nav .btn{width:100%}
-.result-actions .view-toggle-active{background:var(--pri);color:#fff;border-color:var(--pri)}
-@media(max-width:620px){
-  .student-inline-lap{grid-template-columns:58px 1fr 1fr 54px;gap:5px;font-size:11px;padding:7px 8px}
+
+.student-cards-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px;
+  margin-top:14px;
+}
+.student-result-card{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--card);
+  padding:12px;
+  min-width:0;
+}
+.student-result-card-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:8px;
+}
+.student-result-name{
+  min-width:0;
+  font-size:17px;
+  font-weight:900;
+  line-height:1.05;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.student-result-score{
+  font-size:17px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.student-result-summary{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+  margin-bottom:8px;
+}
+.student-result-kpi{
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--bg);
+  padding:7px 8px;
+}
+.student-result-kpi span{
+  display:block;
+  color:var(--mut);
+  font-size:9px;
+  margin-bottom:2px;
+}
+.student-result-kpi b{
+  font-size:13px;
+}
+.student-result-laps{
+  display:grid;
+  gap:4px;
+}
+.student-result-lap{
+  display:grid;
+  grid-template-columns:48px 1fr 1fr;
+  gap:6px;
+  align-items:center;
+  padding:5px 6px;
+  border-radius:7px;
+  background:var(--bg);
+  font-size:10px;
+  font-variant-numeric:tabular-nums;
+}
+.student-result-lap span:nth-child(2),
+.student-result-lap span:nth-child(3){
+  text-align:right;
+}
+.student-result-lap .lap-label{
+  font-weight:800;
+}
+.result-actions .view-toggle-active{
+  background:var(--pri);
+  color:#fff;
+  border-color:var(--pri);
+}
+
+/* En plein écran, on profite mieux de l'espace sans rendre les cartes gigantesques */
+.results-session:fullscreen .student-cards-grid,
+.results-session.result-expanded-fallback .student-cards-grid{
+  grid-template-columns:repeat(auto-fit,minmax(240px,320px));
+  justify-content:center;
+}
+@media(max-width:520px){
+  .student-cards-grid{
+    grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:7px;
+  }
+  .student-result-card{padding:9px}
+  .student-result-name{font-size:14px}
+  .student-result-score{font-size:14px}
+  .student-result-lap{font-size:9px;grid-template-columns:42px 1fr 1fr}
 }
 
 </style>
@@ -1141,7 +1223,7 @@ function resultsView(c){
 
         <div class="result-actions">
           <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
-            Vue élève
+            Vue cartes
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
@@ -1195,7 +1277,7 @@ function resultsView(c){
 
         <div class="result-actions">
           <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
-            Vue élève
+            Vue cartes
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
@@ -1291,7 +1373,7 @@ function resultsView(c){
 
       <div class="result-actions">
           <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
-            Vue élève
+            Vue cartes
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
@@ -1319,29 +1401,66 @@ function resultsView(c){
 
 
 
-function inlineStudentHtml(c,s,index=0){
+
+function studentCardsHtml(c,s){
   const parts=s.participants||[];
   if(!parts.length)return `<div class="empty">Aucun élève dans cette séance.</div>`;
-  index=((Number(index)||0)%parts.length+parts.length)%parts.length;
-  const p=parts[index];
-  const name=`${esc(p.first)} ${esc(p.last)}`.trim();
 
-  if(s.mode==="laps"){
-    const laps=p.laps||[];
-    const avg=averageLapMs(p);
-    const maxLaps=Math.max(1,parseInt(s.maxLaps||laps.length||1,10));
-    let totalPts=0;
-    const lapRows=laps.map((l,i)=>{
-      const diff=(l.lapTimeMs||0)-avg;
-      const pts=lapPointsFromDiffMs(diff);
-      totalPts+=pts;
-      return `<div class="student-inline-lap">
-        <span class="lap-label">Tour ${i+1}</span>
-        <span>${fmt(l.lapTimeMs)}</span>
-        <span>${fmtSigned(diff)}</span>
-        <span><b>${pts}</b></span>
+  return `<div class="student-cards-grid">${parts.map(p=>{
+    const name=`${esc(p.first)} ${esc(p.last)}`.trim();
+
+    if(s.mode==="laps"){
+      const laps=p.laps||[];
+      const avg=averageLapMs(p);
+      const maxLaps=Math.max(1,parseInt(s.maxLaps||laps.length||1,10));
+      let totalPts=0;
+
+      const lapRows=laps.map((l,i)=>{
+        const diff=(l.lapTimeMs||0)-avg;
+        totalPts+=lapPointsFromDiffMs(diff);
+        return `<div class="student-result-lap">
+          <span class="lap-label">T${i+1}</span>
+          <span>${fmt(l.lapTimeMs)}</span>
+          <span>${fmtSigned(diff)}</span>
+        </div>`;
+      }).join("");
+
+      const total=p.elapsedMs||(
+        p.finishedAt&&p.startedAt
+          ? Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0))
+          : 0
+      );
+
+      return `<div class="student-result-card">
+        <div class="student-result-card-head">
+          <div class="student-result-name">${name}</div>
+          <div class="student-result-score">${totalPts}/${maxLaps*10}</div>
+        </div>
+
+        <div class="student-result-summary">
+          <div class="student-result-kpi"><span>Moyenne</span><b>${laps.length?fmt(avg):"—"}</b></div>
+          <div class="student-result-kpi"><span>Temps total</span><b>${total?fmt(total):"—"}</b></div>
+        </div>
+
+        <div class="student-result-laps">
+          ${lapRows||'<div class="empty">Aucun tour</div>'}
+        </div>
       </div>`;
-    }).join("");
+    }
+
+    if(s.mode==="timed"){
+      const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt):0);
+      return `<div class="student-result-card">
+        <div class="student-result-card-head">
+          <div class="student-result-name">${name}</div>
+          <div class="student-result-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}</div>
+        </div>
+        <div class="student-result-summary">
+          <div class="student-result-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
+          <div class="student-result-kpi"><span>Distance +</span><b>${Number(p.extraDistanceM||0)} m</b></div>
+        </div>
+      </div>`;
+    }
 
     const total=p.elapsedMs||(
       p.finishedAt&&p.startedAt
@@ -1349,79 +1468,33 @@ function inlineStudentHtml(c,s,index=0){
         : 0
     );
 
-    return `<div class="student-inline-card">
-      <div class="student-inline-head">
-        <div>
-          <div class="student-inline-name">${name}</div>
-          <small>Élève ${index+1} sur ${parts.length}</small>
-        </div>
-        <div class="student-inline-score">${totalPts} / ${maxLaps*10}</div>
+    return `<div class="student-result-card">
+      <div class="student-result-card-head">
+        <div class="student-result-name">${name}</div>
+        <div class="student-result-score">${total?fmt(total):"—"}</div>
       </div>
-      <div class="student-inline-summary">
-        <div class="student-inline-kpi"><span>Temps moyen</span><b>${laps.length?fmt(avg):"—"}</b></div>
-        <div class="student-inline-kpi"><span>Temps total</span><b>${total?fmt(total):"—"}</b></div>
-      </div>
-      <div class="student-inline-laps">
-        <div class="student-inline-lap" style="font-weight:800">
-          <span>Tour</span><span>Temps</span><span>Écart</span><span>Pts</span>
-        </div>
-        ${lapRows||'<div class="empty">Aucun tour enregistré.</div>'}
-      </div>
-      <div class="student-inline-nav">
-        <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-        <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+      <div class="student-result-summary">
+        <div class="student-result-kpi"><span>Temps</span><b>${total?fmt(total):"—"}</b></div>
+        <div class="student-result-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
       </div>
     </div>`;
-  }
-
-  if(s.mode==="timed"){
-    const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt):0);
-    return `<div class="student-inline-card">
-      <div class="student-inline-head">
-        <div><div class="student-inline-name">${name}</div><small>Élève ${index+1} sur ${parts.length}</small></div>
-        <div class="student-inline-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}</div>
-      </div>
-      <div class="student-inline-summary">
-        <div class="student-inline-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
-        <div class="student-inline-kpi"><span>Distance supplémentaire</span><b>${Number(p.extraDistanceM||0)} m</b></div>
-      </div>
-      <div class="student-inline-nav">
-        <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-        <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
-      </div>
-    </div>`;
-  }
-
-  const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0)):0);
-  return `<div class="student-inline-card">
-    <div class="student-inline-head">
-      <div><div class="student-inline-name">${name}</div><small>Élève ${index+1} sur ${parts.length}</small></div>
-      <div class="student-inline-score">${total?fmt(total):"—"}</div>
-    </div>
-    <div class="student-inline-summary">
-      <div class="student-inline-kpi"><span>Temps</span><b>${total?fmt(total):"—"}</b></div>
-      <div class="student-inline-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
-    </div>
-    <div class="student-inline-nav">
-      <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-      <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
-    </div>
-  </div>`;
+  }).join("")}</div>`;
 }
 
-function showResultView(c,sessionId,view,index=0){
+function showResultView(c,sessionId,view){
   const section=document.querySelector(`[data-result-session="${sessionId}"]`);
   const s=(c.history||[]).find(x=>x.id===sessionId);
   if(!section||!s)return;
+
   const tablePanel=section.querySelector('[data-view="table"]');
-  const studentPanel=section.querySelector('[data-view="student"]');
+  const cardsPanel=section.querySelector('[data-view="student"]');
   const toggleBtn=section.querySelector('[data-act="toggleStudentView"]');
 
   if(view==="student"){
     if(tablePanel)tablePanel.hidden=true;
-    if(studentPanel){
-      studentPanel.hidden=false;
-      studentPanel.innerHTML=inlineStudentHtml(c,s,index);
+    if(cardsPanel){
+      cardsPanel.hidden=false;
+      cardsPanel.innerHTML=studentCardsHtml(c,s);
     }
     if(toggleBtn){
       toggleBtn.textContent="Vue tableau";
@@ -1429,9 +1502,9 @@ function showResultView(c,sessionId,view,index=0){
     }
   }else{
     if(tablePanel)tablePanel.hidden=false;
-    if(studentPanel)studentPanel.hidden=true;
+    if(cardsPanel)cardsPanel.hidden=true;
     if(toggleBtn){
-      toggleBtn.textContent="Vue élève";
+      toggleBtn.textContent="Vue cartes";
       toggleBtn.classList.remove("view-toggle-active");
     }
   }
@@ -1564,11 +1637,7 @@ $("app").addEventListener("click",async e=>{
   else if(act==="toggleStudentView"){
     const section=b.closest(".results-session");
     const studentPanel=section?.querySelector('[data-view="student"]');
-    showResultView(c,b.dataset.session,studentPanel?.hidden===false?"table":"student",0);
-  }
-  else if(act==="studentPrevInline"||act==="studentNextInline"){
-    const cur=parseInt(b.dataset.index||0,10);
-    showResultView(c,b.dataset.session,"student",act==="studentNextInline"?cur+1:cur-1);
+    showResultView(c,b.dataset.session,studentPanel?.hidden===false?"table":"student");
   }
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
