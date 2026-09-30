@@ -583,7 +583,7 @@ dialog select{
   accent-color:var(--pri);
 }
 .timer-size-control .size-value{
-  min-width:48px;
+  min-width:78px;
   text-align:right;
   font-size:12px;
   color:var(--mut);
@@ -612,6 +612,28 @@ dialog select{
     gap:6px !important;
   }
 }
+
+/* ===== Carte scalable v27 ===== */
+.race-name b{
+  font-size:clamp(17px, calc(var(--card-size,140px) * 0.13), 30px) !important;
+  line-height:1 !important;
+  font-weight:900 !important;
+}
+.race-name small{
+  font-size:clamp(8px, calc(var(--card-size,140px) * 0.055), 13px) !important;
+}
+.race-time{
+  font-size:clamp(11px, calc(var(--card-size,140px) * 0.085), 18px) !important;
+}
+.race-status,
+.lap-mini,
+.progress-laps{
+  font-size:clamp(8px, calc(var(--card-size,140px) * 0.05), 12px) !important;
+}
+.student-number{
+  font-size:clamp(8px, calc(var(--card-size,140px) * 0.05), 12px) !important;
+}
+
 </style>
 </head>
 <body>
@@ -632,12 +654,20 @@ function getCardSize(){
   const v=parseInt(localStorage.getItem(CARD_SIZE_KEY)||CARD_DEFAULT_PX,10);
   return Math.min(CARD_MAX_PX,Math.max(CARD_MIN_PX,Number.isFinite(v)?v:CARD_DEFAULT_PX));
 }
+function cardSizeLabel(n){
+  const t=(n-CARD_MIN_PX)/(CARD_MAX_PX-CARD_MIN_PX);
+  if(t<0.2)return "Très petit";
+  if(t<0.4)return "Petit";
+  if(t<0.6)return "Moyen";
+  if(t<0.8)return "Grand";
+  return "Très grand";
+}
 function setCardSize(v){
   const n=Math.min(CARD_MAX_PX,Math.max(CARD_MIN_PX,parseInt(v||CARD_DEFAULT_PX,10)));
   localStorage.setItem(CARD_SIZE_KEY,String(n));
   document.documentElement.style.setProperty("--card-size",n+"px");
   const out=document.getElementById("cardSizeValue");
-  if(out)out.textContent=n+" px";
+  if(out)out.textContent=cardSizeLabel(n);
 }
 
 const $=id=>document.getElementById(id);
@@ -1208,7 +1238,7 @@ function timerView(c){
     }
     return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
       <div class="student-number">#${i+1}</div>
-      <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}${p.sex?` · ${p.sex}`:""}</small></div>
+      <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}</small></div>
       <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
       <div class="race-status">${status}</div>
       ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"?`<div class="progress-laps">${p.laps.length} tour${p.laps.length>1?"s":""}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance"><select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}</select></div>`:""}
@@ -1226,7 +1256,7 @@ function timerView(c){
     <div class="size-row">
       <label for="cardSizeSlider">Taille des cartes</label>
       <input id="cardSizeSlider" type="range" min="${CARD_MIN_PX}" max="${CARD_MAX_PX}" step="1" value="${getCardSize()}" data-act="cardSize">
-      <span class="size-value" id="cardSizeValue">${getCardSize()} px</span>
+      <span class="size-value" id="cardSizeValue">${cardSizeLabel(getCardSize())}</span>
     </div>
   </div>
   <div class="race-grid">${cards}</div><p class="helper-text">${
