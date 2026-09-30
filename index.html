@@ -456,6 +456,27 @@ dialog select{
 .timed-settings input{width:100%;height:48px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--tx);padding:0 12px;font:inherit}
 .extra-distance{margin-top:5px;width:100%}
 .extra-distance select{width:100%;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--tx);font-size:11px;padding:4px}
+
+/* ===== Lisibilité prénom v15 ===== */
+.race-name b{
+  font-size:14px !important;
+  line-height:1.05 !important;
+  font-weight:800 !important;
+}
+.race-name small{
+  font-size:9px !important;
+  line-height:1.05 !important;
+  margin-top:2px !important;
+}
+@media(max-width:430px){
+  .race-name b{
+    font-size:13px !important;
+  }
+  .race-name small{
+    font-size:8.5px !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -629,7 +650,29 @@ function tapParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
 
-  if(s.mode==="timed"){if(!p.startedAt)startParticipant(c,p);return;}
+  if(s.mode==="timed"){
+    if(!p.startedAt){
+      startParticipant(c,p);
+      return;
+    }
+    if(p.finishedAt)return;
+
+    const prev=p.lastLapAt||p.startedAt;
+    const lap=now-prev;
+    const total=now-p.startedAt;
+
+    p.laps.push({
+      n:p.laps.length+1,
+      lapTimeMs:lap,
+      totalTimeMs:total,
+      recordedAt:now
+    });
+
+    p.lastLapAt=now;
+    save();
+    render();
+    return;
+  }
 
   // Avant démarrage : toucher une carte démarre uniquement cet élève
   if(!p.startedAt){
@@ -740,14 +783,14 @@ function timerView(c){
     }else if(s.mode==="laps"){
       status=finished?"Terminé":started?`Tour ${Math.min(p.laps.length+1,maxLaps)} / ${maxLaps}`:"Toucher pour démarrer";
     }else{
-      status=finished?"Terminé":started?"En cours":"Toucher pour démarrer";
+      status=finished?`Terminé · ${p.laps.length} tour${p.laps.length>1?"s":""}`:started?`${p.laps.length} tour${p.laps.length>1?"s":""}`:"Toucher pour démarrer";
     }
     return`<div class="race-card ${clsState}" role="button" tabindex="0" data-act="tapParticipant" data-c="${c.id}" data-p="${p.studentId}">
       <div class="student-number">#${i+1}</div>
       <div class="race-name"><b>${esc(p.first)}</b><small>${esc(p.last)}${p.sex?` · ${p.sex}`:""}</small></div>
       <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
       <div class="race-status">${status}</div>
-      ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance"><select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}</select></div>`:""}
+      ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"?`<div class="progress-laps">${p.laps.length} tour${p.laps.length>1?"s":""}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance"><select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}</select></div>`:""}
     </div>`
   }).join("");
   return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
@@ -859,10 +902,10 @@ function exportSessionCsv(c,s){
     rows=[["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
     s.participants.forEach(p=>rows.push([c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
   }else if(s.mode==="timed"){
-    rows=[["Classe","Nom séance","Date","Mode","Durée prévue (min)","Prénom","Nom","Sexe","Temps","Distance supplémentaire (m)"]];
+    rows=[["Classe","Nom séance","Date","Mode","Durée prévue (min)","Prénom","Nom","Sexe","Temps","Nombre de tours","Distance supplémentaire (m)"]];
     s.participants.forEach(p=>rows.push([
       c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.durationMin||12,p.first,p.last,
-      p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),p.extraDistanceM||0
+      p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),(p.laps||[]).length,p.extraDistanceM||0
     ]));
   }else{
     const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),10));
