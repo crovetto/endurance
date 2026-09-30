@@ -689,140 +689,26 @@ dialog select{
 }
 
 
-/* ===== Vue élève v29 ===== */
-.student-view-overlay{
-  position:fixed;
-  inset:0;
-  z-index:10000;
-  background:var(--bg);
-  color:var(--tx);
-  overflow:auto;
-  padding:18px;
-}
-.student-view-shell{
-  max-width:980px;
-  margin:0 auto;
-}
-.student-view-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin-bottom:16px;
-}
-.student-view-top h2{
-  margin:0;
-  font-size:clamp(28px,5vw,44px);
-  line-height:1;
-}
-.student-view-close{
-  width:44px;
-  height:44px;
-  border-radius:12px;
-  border:1px solid var(--line);
-  background:var(--card);
-  color:var(--tx);
-  font-size:22px;
-}
-.student-score{
-  margin:8px 0 18px;
-  font-size:clamp(26px,5vw,42px);
-  font-weight:900;
-}
-.student-score small{
-  display:block;
-  margin-top:4px;
-  font-size:13px;
-  font-weight:600;
-  color:var(--mut);
-}
-.student-kpis{
-  display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:10px;
-  margin-bottom:18px;
-}
-.student-kpi{
-  padding:14px;
-  border:1px solid var(--line);
-  border-radius:14px;
-  background:var(--card);
-}
-.student-kpi span{
-  display:block;
-  color:var(--mut);
-  font-size:12px;
-  margin-bottom:4px;
-}
-.student-kpi b{
-  font-size:clamp(18px,3vw,26px);
-}
-.student-chart-card{
-  padding:14px;
-  border:1px solid var(--line);
-  border-radius:16px;
-  background:var(--card);
-}
-.student-chart-title{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  align-items:baseline;
-  margin-bottom:8px;
-}
-.student-chart-title b{
-  font-size:18px;
-}
-.student-chart-title small{
-  font-size:12px;
-}
-.student-chart{
-  width:100%;
-  height:auto;
-  display:block;
-  overflow:visible;
-}
-.student-points-row{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:14px;
-}
-.student-point-chip{
-  padding:7px 10px;
-  border-radius:999px;
-  background:var(--bg);
-  border:1px solid var(--line);
-  font-size:12px;
-  font-weight:700;
-}
-.student-nav{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-  margin-top:18px;
-}
-.student-nav .btn{
-  width:100%;
-}
-.student-empty-chart{
-  padding:28px 10px;
-  text-align:center;
-  color:var(--mut);
-}
-.result-actions{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
-  margin-top:12px;
-}
-.result-actions .btn{
-  flex:1 1 180px;
-}
+/* ===== Vue élève intégrée v31 ===== */
+.result-view-panel[hidden]{display:none!important}
+.student-inline{margin-top:14px}
+.student-inline-card{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:16px}
+.student-inline-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.student-inline-name{font-size:clamp(22px,4vw,32px);font-weight:900;line-height:1.05}
+.student-inline-score{font-size:clamp(22px,4vw,30px);font-weight:900;white-space:nowrap}
+.student-inline-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.student-inline-kpi{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:12px}
+.student-inline-kpi span{display:block;color:var(--mut);font-size:11px;margin-bottom:3px}
+.student-inline-kpi b{font-size:18px}
+.student-inline-laps{display:grid;gap:6px}
+.student-inline-lap{display:grid;grid-template-columns:72px 1fr 1fr 70px;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:13px}
+.student-inline-lap .lap-label{font-weight:800}
+.student-inline-lap span:not(.lap-label){text-align:right;font-variant-numeric:tabular-nums}
+.student-inline-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.student-inline-nav .btn{width:100%}
+.result-actions .view-toggle-active{background:var(--pri);color:#fff;border-color:var(--pri)}
 @media(max-width:620px){
-  .student-kpis{
-    grid-template-columns:1fr;
-  }
+  .student-inline-lap{grid-template-columns:58px 1fr 1fr 54px;gap:5px;font-size:11px;padding:7px 8px}
 }
 
 </style>
@@ -1239,7 +1125,7 @@ function resultsView(c){
           ${s.distance?` · ${esc(s.distance)} ${esc(s.distanceUnit)}`:""}
         </div>
 
-        <div class="results-table-wrap">
+        <div class="result-view-panel" data-view="table"><div class="results-table-wrap">
           <table class="results-table" style="min-width:480px">
             <thead>
               <tr>
@@ -1250,10 +1136,11 @@ function resultsView(c){
             </thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>
+        </div></div>
+        <div class="result-view-panel student-inline" data-view="student" hidden></div>
 
         <div class="result-actions">
-          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+          <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
             Vue élève
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
@@ -1290,7 +1177,7 @@ function resultsView(c){
           · ${dateFR(s.startedAt||s.createdAt)}
         </div>
 
-        <div class="results-table-wrap">
+        <div class="result-view-panel" data-view="table"><div class="results-table-wrap">
           <table class="results-table" style="min-width:620px">
             <thead>
               <tr>
@@ -1303,10 +1190,11 @@ function resultsView(c){
             </thead>
             <tbody>${rows}</tbody>
           </table>
-        </div>
+        </div></div>
+        <div class="result-view-panel student-inline" data-view="student" hidden></div>
 
         <div class="result-actions">
-          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+          <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
             Vue élève
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
@@ -1384,7 +1272,7 @@ function resultsView(c){
         · ${maxLaps} tour${maxLaps>1?"s":""}
       </div>
 
-      <div class="results-table-wrap">
+      <div class="result-view-panel" data-view="table"><div class="results-table-wrap">
         <table class="results-table">
           <thead>
             <tr>
@@ -1398,10 +1286,11 @@ function resultsView(c){
           </thead>
           <tbody>${rows}</tbody>
         </table>
-      </div>
+      </div></div>
+        <div class="result-view-panel student-inline" data-view="student" hidden></div>
 
       <div class="result-actions">
-          <button class="btn pri" data-act="openStudentView" data-c="${c.id}" data-session="${s.id}">
+          <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
             Vue élève
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
@@ -1429,177 +1318,123 @@ function resultsView(c){
 
 
 
-function sec1(ms){
-  return (Math.max(0,Number(ms)||0)/1000).toFixed(1).replace(".",",")+" s";
-}
 
-function studentChartSvg(p){
-  const laps=(p.laps||[]);
-  if(!laps.length)return `<div class="student-empty-chart">Aucun tour enregistré.</div>`;
-
-  const avg=averageLapMs(p);
-  const vals=laps.map(l=>Math.max(0,Number(l.lapTimeMs)||0));
-  const maxV=Math.max(...vals,avg,1000);
-  const minV=Math.min(...vals,avg);
-  const pad=28;
-  const w=760;
-  const h=300;
-  const innerW=w-pad*2;
-  const innerH=h-60;
-  const range=Math.max(1,maxV-Math.min(0,minV));
-  const x=i=>pad+(laps.length===1?innerW/2:(i*innerW/(laps.length-1)));
-  const y=v=>18+innerH-(v/maxV)*innerH;
-
-  const avgY=y(avg);
-  let grid="";
-  for(let i=0;i<4;i++){
-    const gy=18+i*(innerH/3);
-    grid+=`<line x1="${pad}" y1="${gy}" x2="${w-pad}" y2="${gy}" stroke="currentColor" opacity=".08" stroke-width="1"/>`;
-  }
-
-  const linePts=laps.map((l,i)=>`${x(i)},${y(l.lapTimeMs)}`).join(" ");
-  const dots=laps.map((l,i)=>{
-    const diff=(l.lapTimeMs||0)-avg;
-    const pts=lapPointsFromDiffMs(diff);
-    const fill=pts>=8?"#22c55e":pts>=5?"#f59e0b":"#ef4444";
-    return `<g>
-      <circle cx="${x(i)}" cy="${y(l.lapTimeMs)}" r="7" fill="${fill}" stroke="white" stroke-width="2"/>
-      <text x="${x(i)}" y="${h-10}" text-anchor="middle" font-size="12" fill="currentColor">T${i+1}</text>
-    </g>`;
-  }).join("");
-
-  return `<svg class="student-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="Temps par tour">
-    ${grid}
-    <line x1="${pad}" y1="${avgY}" x2="${w-pad}" y2="${avgY}" stroke="#64748b" stroke-width="2" stroke-dasharray="7 6"/>
-    <text x="${w-pad}" y="${Math.max(14,avgY-6)}" text-anchor="end" font-size="12" fill="#64748b">Moyenne ${sec1(avg)}</text>
-    <polyline points="${linePts}" fill="none" stroke="currentColor" opacity=".42" stroke-width="3"/>
-    ${dots}
-  </svg>`;
-}
-
-function studentPerformanceHtml(c,s,p,index){
-  const totalStudents=(s.participants||[]).length;
+function inlineStudentHtml(c,s,index=0){
+  const parts=s.participants||[];
+  if(!parts.length)return `<div class="empty">Aucun élève dans cette séance.</div>`;
+  index=((Number(index)||0)%parts.length+parts.length)%parts.length;
+  const p=parts[index];
   const name=`${esc(p.first)} ${esc(p.last)}`.trim();
 
   if(s.mode==="laps"){
     const laps=p.laps||[];
     const avg=averageLapMs(p);
     const maxLaps=Math.max(1,parseInt(s.maxLaps||laps.length||1,10));
-    const totalPts=laps.reduce((sum,l)=>sum+lapPointsFromDiffMs((l.lapTimeMs||0)-avg),0);
-    const maxPts=maxLaps*10;
-    const regularity=maxPts?Math.round(totalPts/maxPts*100):0;
+    let totalPts=0;
+    const lapRows=laps.map((l,i)=>{
+      const diff=(l.lapTimeMs||0)-avg;
+      const pts=lapPointsFromDiffMs(diff);
+      totalPts+=pts;
+      return `<div class="student-inline-lap">
+        <span class="lap-label">Tour ${i+1}</span>
+        <span>${fmt(l.lapTimeMs)}</span>
+        <span>${fmtSigned(diff)}</span>
+        <span><b>${pts}</b></span>
+      </div>`;
+    }).join("");
+
     const total=p.elapsedMs||(
       p.finishedAt&&p.startedAt
         ? Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0))
         : 0
     );
 
-    const chips=laps.map((l,i)=>{
-      const pts=lapPointsFromDiffMs((l.lapTimeMs||0)-avg);
-      return `<span class="student-point-chip">T${i+1} · ${pts} pt${pts>1?"s":""}</span>`;
-    }).join("");
-
-    return `<div class="student-view-shell">
-      <div class="student-view-top">
+    return `<div class="student-inline-card">
+      <div class="student-inline-head">
         <div>
-          <h2>${name}</h2>
-          <small>${esc(s.name||"Séance")} · Tours</small>
+          <div class="student-inline-name">${name}</div>
+          <small>Élève ${index+1} sur ${parts.length}</small>
         </div>
-        <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+        <div class="student-inline-score">${totalPts} / ${maxLaps*10}</div>
       </div>
-
-      <div class="student-score">${totalPts} / ${maxPts} points
-        <small>${index+1} / ${totalStudents}</small>
+      <div class="student-inline-summary">
+        <div class="student-inline-kpi"><span>Temps moyen</span><b>${laps.length?fmt(avg):"—"}</b></div>
+        <div class="student-inline-kpi"><span>Temps total</span><b>${total?fmt(total):"—"}</b></div>
       </div>
-
-      <div class="student-kpis">
-        <div class="student-kpi"><span>Temps moyen</span><b>${laps.length?sec1(avg):"—"}</b></div>
-        <div class="student-kpi"><span>Temps total</span><b>${total?fmt(total):"—"}</b></div>
-        <div class="student-kpi"><span>Régularité</span><b>${regularity} %</b></div>
-      </div>
-
-      <div class="student-chart-card">
-        <div class="student-chart-title">
-          <b>Performance par tour</b>
-          <small>La ligne pointillée = moyenne</small>
+      <div class="student-inline-laps">
+        <div class="student-inline-lap" style="font-weight:800">
+          <span>Tour</span><span>Temps</span><span>Écart</span><span>Pts</span>
         </div>
-        ${studentChartSvg(p)}
-        <div class="student-points-row">${chips}</div>
+        ${lapRows||'<div class="empty">Aucun tour enregistré.</div>'}
       </div>
-
-      <div class="student-nav">
-        <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-        <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+      <div class="student-inline-nav">
+        <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+        <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
       </div>
     </div>`;
   }
 
   if(s.mode==="timed"){
     const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt):0);
-    return `<div class="student-view-shell">
-      <div class="student-view-top">
-        <div><h2>${name}</h2><small>${esc(s.name||"Séance")} · Temps imposé</small></div>
-        <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+    return `<div class="student-inline-card">
+      <div class="student-inline-head">
+        <div><div class="student-inline-name">${name}</div><small>Élève ${index+1} sur ${parts.length}</small></div>
+        <div class="student-inline-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}</div>
       </div>
-      <div class="student-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}
-        <small>${index+1} / ${totalStudents}</small>
+      <div class="student-inline-summary">
+        <div class="student-inline-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
+        <div class="student-inline-kpi"><span>Distance supplémentaire</span><b>${Number(p.extraDistanceM||0)} m</b></div>
       </div>
-      <div class="student-kpis">
-        <div class="student-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
-        <div class="student-kpi"><span>Tours</span><b>${(p.laps||[]).length}</b></div>
-        <div class="student-kpi"><span>Distance supplémentaire</span><b>${Number(p.extraDistanceM||0)} m</b></div>
-      </div>
-      <div class="student-nav">
-        <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-        <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+      <div class="student-inline-nav">
+        <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+        <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
       </div>
     </div>`;
   }
 
   const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt-Number(p.pauseTotalMs||0)):0);
-  return `<div class="student-view-shell">
-    <div class="student-view-top">
-      <div><h2>${name}</h2><small>${esc(s.name||"Séance")} · Course</small></div>
-      <button class="student-view-close" data-act="closeStudentView" type="button">✕</button>
+  return `<div class="student-inline-card">
+    <div class="student-inline-head">
+      <div><div class="student-inline-name">${name}</div><small>Élève ${index+1} sur ${parts.length}</small></div>
+      <div class="student-inline-score">${total?fmt(total):"—"}</div>
     </div>
-    <div class="student-score">${total?fmt(total):"—"}
-      <small>${index+1} / ${totalStudents}</small>
+    <div class="student-inline-summary">
+      <div class="student-inline-kpi"><span>Temps</span><b>${total?fmt(total):"—"}</b></div>
+      <div class="student-inline-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
     </div>
-    <div class="student-kpis">
-      <div class="student-kpi"><span>Temps</span><b>${total?fmt(total):"—"}</b></div>
-      <div class="student-kpi"><span>Distance</span><b>${s.distance?`${esc(s.distance)} ${esc(s.distanceUnit)}`:"—"}</b></div>
-      <div class="student-kpi"><span>Statut</span><b>${p.finishedAt?"Terminé":"—"}</b></div>
-    </div>
-    <div class="student-nav">
-      <button class="btn" data-act="studentPrev" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
-      <button class="btn pri" data-act="studentNext" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
+    <div class="student-inline-nav">
+      <button class="btn" data-act="studentPrevInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">‹ Élève précédent</button>
+      <button class="btn pri" data-act="studentNextInline" data-c="${c.id}" data-session="${s.id}" data-index="${index}">Élève suivant ›</button>
     </div>
   </div>`;
 }
 
-function openStudentView(c,sessionId,index=0){
+function showResultView(c,sessionId,view,index=0){
+  const section=document.querySelector(`[data-result-session="${sessionId}"]`);
   const s=(c.history||[]).find(x=>x.id===sessionId);
-  if(!s||!(s.participants||[]).length)return;
-  const n=s.participants.length;
-  index=((Number(index)||0)%n+n)%n;
-  let overlay=document.getElementById("studentViewOverlay");
-  if(!overlay){
-    overlay=document.createElement("div");
-    overlay.id="studentViewOverlay";
-    overlay.className="student-view-overlay";
-    document.body.appendChild(overlay);
-  }
-  overlay.dataset.c=c.id;
-  overlay.dataset.session=s.id;
-  overlay.dataset.index=String(index);
-  overlay.innerHTML=studentPerformanceHtml(c,s,s.participants[index],index);
-  document.body.style.overflow="hidden";
-}
+  if(!section||!s)return;
+  const tablePanel=section.querySelector('[data-view="table"]');
+  const studentPanel=section.querySelector('[data-view="student"]');
+  const toggleBtn=section.querySelector('[data-act="toggleStudentView"]');
 
-function closeStudentView(){
-  const overlay=document.getElementById("studentViewOverlay");
-  if(overlay)overlay.remove();
-  document.body.style.overflow="";
+  if(view==="student"){
+    if(tablePanel)tablePanel.hidden=true;
+    if(studentPanel){
+      studentPanel.hidden=false;
+      studentPanel.innerHTML=inlineStudentHtml(c,s,index);
+    }
+    if(toggleBtn){
+      toggleBtn.textContent="Vue tableau";
+      toggleBtn.classList.add("view-toggle-active");
+    }
+  }else{
+    if(tablePanel)tablePanel.hidden=false;
+    if(studentPanel)studentPanel.hidden=true;
+    if(toggleBtn){
+      toggleBtn.textContent="Vue élève";
+      toggleBtn.classList.remove("view-toggle-active");
+    }
+  }
 }
 
 async function toggleResultFullscreen(sessionId){
@@ -1726,20 +1561,14 @@ $("app").addEventListener("click",async e=>{
   else if(act==="openSetup")location.hash=`#/setup/${b.dataset.c}`
   else if(act==="openResults")location.hash=`#/results/${b.dataset.c}`
   else if(act==="toggleResultFullscreen")toggleResultFullscreen(b.dataset.session)
-  else if(act==="openStudentView"){
-    openStudentView(c,b.dataset.session,0);
+  else if(act==="toggleStudentView"){
+    const section=b.closest(".results-session");
+    const studentPanel=section?.querySelector('[data-view="student"]');
+    showResultView(c,b.dataset.session,studentPanel?.hidden===false?"table":"student",0);
   }
-  else if(act==="closeStudentView"){
-    closeStudentView();
-  }
-  else if(act==="studentPrev"||act==="studentNext"){
-    const sessionId=b.dataset.session;
-    const s=(c.history||[]).find(x=>x.id===sessionId);
-    if(s&&s.participants&&s.participants.length){
-      const cur=parseInt(b.dataset.index||0,10);
-      const next=act==="studentNext"?cur+1:cur-1;
-      openStudentView(c,sessionId,next);
-    }
+  else if(act==="studentPrevInline"||act==="studentNextInline"){
+    const cur=parseInt(b.dataset.index||0,10);
+    showResultView(c,b.dataset.session,"student",act==="studentNextInline"?cur+1:cur-1);
   }
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
@@ -1833,26 +1662,6 @@ $("app").addEventListener("input",e=>{
 });
 
 
-document.addEventListener("click",e=>{
-  const b=e.target.closest("#studentViewOverlay [data-act]");
-  if(!b)return;
-  const act=b.dataset.act;
-  const c=cls(b.dataset.c||document.getElementById("studentViewOverlay")?.dataset.c);
-  if(act==="closeStudentView"){
-    closeStudentView();
-    return;
-  }
-  if(!c)return;
-  if(act==="studentPrev"||act==="studentNext"){
-    const sessionId=b.dataset.session;
-    const s=(c.history||[]).find(x=>x.id===sessionId);
-    if(s&&s.participants&&s.participants.length){
-      const cur=parseInt(b.dataset.index||0,10);
-      const next=act==="studentNext"?cur+1:cur-1;
-      openStudentView(c,sessionId,next);
-    }
-  }
-});
 
 $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
 $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}});
