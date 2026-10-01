@@ -2064,8 +2064,8 @@ function tick(){const r=route();if(r.page!=="timer")return;const c=cls(r.id),s=c
 setInterval(tick,100);
 
 function show(html){return new Promise(res=>{const d=$("dlg");d.innerHTML=html;d.returnValue="";d.addEventListener("close",()=>{const f=d.querySelector("form");res({v:d.returnValue,f:f?new FormData(f):null})},{once:true});d.showModal()})}
-async function ask(title,fields,ok="Enregistrer"){const inputs=fields.map((f,i)=>`<label>${esc(f.label)}<input name="f${i}" value="${esc(f.value||"")}" placeholder="${esc(f.ph||"")}" ${f.opt?"":"required"}></label>`).join("");const r=await show(`<form method="dialog"><h2>${esc(title)}</h2>${inputs}<div class="row"><button value="cancel" class="btn">Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"?fields.map((_,i)=>(r.f.get("f"+i)||"").trim()):null}
-async function confirmBox(msg,ok="Confirmer"){const r=await show(`<form method="dialog"><h2>${esc(msg)}</h2><div class="row"><button value="cancel" class="btn">Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"}
+async function ask(title,fields,ok="Enregistrer"){const inputs=fields.map((f,i)=>`<label>${esc(f.label)}<input name="f${i}" value="${esc(f.value||"")}" placeholder="${esc(f.ph||"")}" ${f.opt?"":"required"}></label>`).join("");const r=await show(`<form method="dialog"><h2>${esc(title)}</h2>${inputs}<div class="row"><button value="cancel" class="btn" formnovalidate>Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"?fields.map((_,i)=>(r.f.get("f"+i)||"").trim()):null}
+async function confirmBox(msg,ok="Confirmer"){const r=await show(`<form method="dialog"><h2>${esc(msg)}</h2><div class="row"><button value="cancel" class="btn" formnovalidate>Annuler</button><button value="ok" class="btn pri">${esc(ok)}</button></div></form>`);return r.v==="ok"}
 
 $("app").addEventListener("click",async e=>{
   const b=e.target.closest("[data-act]");if(!b)return;const act=b.dataset.act,c=cls(b.dataset.c||route().id);
@@ -2102,7 +2102,7 @@ $("app").addEventListener("click",async e=>{
         </select>
       </label>
       <div class="row">
-        <button value="cancel" class="btn">Annuler</button>
+        <button value="cancel" class="btn" formnovalidate>Annuler</button>
         <button value="ok" class="btn pri">Ajouter</button>
       </div>
     </form>`);
@@ -2132,7 +2132,7 @@ $("app").addEventListener("click",async e=>{
         </select>
       </label>
       <div class="row">
-        <button value="cancel" class="btn">Annuler</button>
+        <button value="cancel" class="btn" formnovalidate>Annuler</button>
         <button value="ok" class="btn pri">Enregistrer</button>
       </div>
     </form>`);
@@ -2264,7 +2264,7 @@ async function editSessionScoring(c,sessionId){
     </div>
 
     <div class="row">
-      <button value="cancel" class="btn">Annuler</button>
+      <button value="cancel" class="btn" formnovalidate>Annuler</button>
       <button value="ok" class="btn pri">Appliquer</button>
     </div>
   </form>`);
