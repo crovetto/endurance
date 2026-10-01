@@ -1003,6 +1003,60 @@ dialog select{
   outline:2px solid rgba(220,38,38,.12);
 }
 
+
+.scoring-simple{display:grid;gap:8px;width:max-content;max-width:100%}
+.scoring-simple-row{display:grid;grid-template-columns:150px auto;gap:12px;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.scoring-simple-row span{display:flex;align-items:baseline;gap:6px}
+.scoring-simple-row small{color:var(--mut);font-size:11px}
+.scoring-simple-row input{width:72px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--tx);padding:0 7px;font:inherit}
+.scoring-simple-row input.invalid-score{border-color:#dc2626!important;outline:2px solid rgba(220,38,38,.12)}
+.scoring-linear-note{max-width:390px;color:var(--mut);font-size:11px;line-height:1.35}
+@media(max-width:560px){.scoring-simple{width:100%}.scoring-simple-row{grid-template-columns:1fr auto}}
+
+
+.scoring-preview-wrap{
+  margin-top:10px;
+  max-width:430px;
+}
+.scoring-preview-title{
+  margin-bottom:6px;
+  font-size:11px;
+  font-weight:800;
+  color:var(--mut);
+}
+.scoring-preview-table{
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--card);
+}
+.scoring-preview-head,
+.scoring-preview-row{
+  display:grid;
+  grid-template-columns:72px 1fr;
+  gap:10px;
+  align-items:center;
+  padding:6px 9px;
+  font-size:11px;
+}
+.scoring-preview-head{
+  background:var(--bg);
+  color:var(--mut);
+  font-weight:800;
+  border-bottom:1px solid var(--line);
+}
+.scoring-preview-row:not(:last-child){
+  border-bottom:1px solid var(--line);
+}
+.scoring-preview-error{
+  padding:8px 10px;
+  border:1px solid #dc2626;
+  border-radius:9px;
+  color:#dc2626;
+  font-size:11px;
+  font-weight:700;
+}
+
 </style>
 </head>
 <body>
@@ -1059,6 +1113,22 @@ function normalizeScoringThresholds(v){
   return a;
 }
 
+
+function linearScoringThresholds(first,last){
+  first=Number(first);
+  last=Number(last);
+  if(!Number.isFinite(first)||!Number.isFinite(last)||first<=0||last<=first){
+    return [...DEFAULT_LAP_SCORING_THRESHOLDS];
+  }
+  const step=(last-first)/9;
+  return Array.from({length:10},(_,i)=>Number((first+i*step).toFixed(3)));
+}
+
+function scoringEndpoints(thresholds){
+  const t=normalizeScoringThresholds(thresholds);
+  return {first:t[0],last:t[9]};
+}
+
 const lapPointsFromDiffMs=(ms,thresholds=DEFAULT_LAP_SCORING_THRESHOLDS)=>{
   const x=Math.abs(Number(ms)||0)/1000;
   const t=normalizeScoringThresholds(thresholds);
@@ -1068,29 +1138,48 @@ const lapPointsFromDiffMs=(ms,thresholds=DEFAULT_LAP_SCORING_THRESHOLDS)=>{
   return 0;
 };
 
+
+function scoringPreviewHtml(first,last){
+  const t=linearScoringThresholds(first,last);
+  const valid=Number.isFinite(Number(first))&&Number.isFinite(Number(last))&&Number(first)>0&&Number(last)>Number(first);
+
+  if(!valid){
+    return `<div class="scoring-preview-error">Aperçu indisponible : vérifie les deux valeurs.</div>`;
+  }
+
+  return `<div class="scoring-preview-table">
+    <div class="scoring-preview-head"><span>Points</span><span>Valeur calculée</span></div>
+    ${t.map((v,i)=>{
+      const left=i===0?0:t[i-1];
+      return `<div class="scoring-preview-row">
+        <span><b>${10-i} pt${10-i>1?"s":""}</b></span>
+        <span>${left.toFixed(2).replace(".",",")} s ≤ x &lt; ${v.toFixed(2).replace(".",",")} s</span>
+      </div>`;
+    }).join("")}
+    <div class="scoring-preview-row">
+      <span><b>0 pt</b></span>
+      <span>x ≥ ${t[9].toFixed(2).replace(".",",")} s</span>
+    </div>
+  </div>`;
+}
+
 function scoringEditorHtml(thresholds,cid){
-  const t=normalizeScoringThresholds(thresholds);
-  return `<table class="scoring-compact-table">
-    <thead>
-      <tr>
-        <th>Points</th>
-        <th>Écart à la moyenne</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${t.map((v,i)=>{
-        const left=i===0?"0":t[i-1];
-        return `<tr>
-          <td>${10-i} pt${10-i>1?"s":""}</td>
-          <td>${left} s ≤ x &lt; <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}"> s</td>
-        </tr>`;
-      }).join("")}
-      <tr>
-        <td>0 pt</td>
-        <td>x ≥ ${t[9]} s</td>
-      </tr>
-    </tbody>
-  </table>`;
+  const {first,last}=scoringEndpoints(thresholds);
+  return `<div class="scoring-simple">
+    <label class="scoring-simple-row">
+      <span><b>10 points</b><small>0 s ≤ x &lt;</small></span>
+      <div><input type="number" min="0.1" step="0.1" value="${first}" data-act="scoreFirst" data-c="${cid}"> s</div>
+    </label>
+    <label class="scoring-simple-row">
+      <span><b>0 point</b><small>x ≥</small></span>
+      <div><input type="number" min="0.1" step="0.1" value="${last}" data-act="scoreLast" data-c="${cid}"> s</div>
+    </label>
+    <div class="scoring-linear-note">Les valeurs de 9 à 1 points sont réparties automatiquement de manière linéaire entre ces deux bornes.</div>
+    <div class="scoring-preview-wrap">
+      <div class="scoring-preview-title">Aperçu du barème complet</div>
+      <div id="scoringPreview">${scoringPreviewHtml(first,last)}</div>
+    </div>
+  </div>`;
 }
 
 const averageLapMs=p=>{
@@ -2058,37 +2147,42 @@ $("app").addEventListener("click",async e=>{
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
   else if(act==="resetScoringDraft"){
-    const inputs=[...document.querySelectorAll('[data-act="scoreThreshold"][data-c="'+c.id+'"]')];
-    inputs.forEach((el,i)=>{el.value=DEFAULT_LAP_SCORING_THRESHOLDS[i]});
+    const first=document.querySelector('[data-act="scoreFirst"][data-c="'+c.id+'"]');
+    const last=document.querySelector('[data-act="scoreLast"][data-c="'+c.id+'"]');
+    if(first)first.value=DEFAULT_LAP_SCORING_THRESHOLDS[0];
+    if(last)last.value=DEFAULT_LAP_SCORING_THRESHOLDS[9];
+    const preview=$("scoringPreview");
+    if(preview)preview.innerHTML=scoringPreviewHtml(DEFAULT_LAP_SCORING_THRESHOLDS[0],DEFAULT_LAP_SCORING_THRESHOLDS[9]);
     const msg=$("scoringValidationMsg");
-    if(msg)msg.textContent="Valeurs par défaut chargées. Clique sur « Valider le barème » pour les enregistrer.";
+    if(msg){
+      msg.textContent="Valeurs par défaut chargées. Clique sur « Valider le barème » pour les enregistrer.";
+      msg.className="scoring-validation-msg";
+    }
   }
   else if(act==="validateScoring"){
-    const inputs=[...document.querySelectorAll('[data-act="scoreThreshold"][data-c="'+c.id+'"]')];
-    const vals=inputs.map(el=>Number(el.value));
+    const firstEl=document.querySelector('[data-act="scoreFirst"][data-c="'+c.id+'"]');
+    const lastEl=document.querySelector('[data-act="scoreLast"][data-c="'+c.id+'"]');
+    const first=Number(firstEl?.value);
+    const last=Number(lastEl?.value);
     const msg=$("scoringValidationMsg");
 
-    const positive=vals.length===10&&vals.every(v=>Number.isFinite(v)&&v>0);
-    const increasing=positive&&vals.every((v,i)=>i===0||v>vals[i-1]);
+    firstEl?.classList.remove("invalid-score");
+    lastEl?.classList.remove("invalid-score");
 
-    inputs.forEach(el=>el.classList.remove("invalid-score"));
-
-    if(!positive||!increasing){
-      for(let i=0;i<inputs.length;i++){
-        const v=vals[i];
-        if(!Number.isFinite(v)||v<=0||(i>0&&v<=vals[i-1]))inputs[i].classList.add("invalid-score");
-      }
+    if(!Number.isFinite(first)||first<=0||!Number.isFinite(last)||last<=first){
+      if(!Number.isFinite(first)||first<=0)firstEl?.classList.add("invalid-score");
+      if(!Number.isFinite(last)||last<=first)lastEl?.classList.add("invalid-score");
       if(msg){
-        msg.textContent="Barème non valide : les 10 bornes doivent être positives et strictement croissantes.";
+        msg.textContent="Barème non valide : la valeur 10 points doit être positive et la valeur 0 point doit être supérieure.";
         msg.className="scoring-validation-msg error";
       }
       return;
     }
 
-    c.setup.scoringThresholds=vals;
+    c.setup.scoringThresholds=linearScoringThresholds(first,last);
     save();
     if(msg){
-      msg.textContent="Barème enregistré pour les prochaines séances Tours.";
+      msg.textContent="Barème enregistré. Les valeurs intermédiaires ont été calculées automatiquement.";
       msg.className="scoring-validation-msg ok";
     }
   }
@@ -2128,6 +2222,15 @@ $("app").addEventListener("input",e=>{
   if(el.dataset.act==="cardSize"){
     setCardSize(el.value);
   }
+
+  if(el.dataset.act==="scoreFirst"||el.dataset.act==="scoreLast"){
+    const c=cls(el.dataset.c);
+    if(!c)return;
+    const firstEl=document.querySelector('[data-act="scoreFirst"][data-c="'+c.id+'"]');
+    const lastEl=document.querySelector('[data-act="scoreLast"][data-c="'+c.id+'"]');
+    const preview=$("scoringPreview");
+    if(preview)preview.innerHTML=scoringPreviewHtml(Number(firstEl?.value),Number(lastEl?.value));
+  }
 });
 
 
@@ -2139,18 +2242,27 @@ $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){c
 async function editSessionScoring(c,sessionId){
   const s=(c.history||[]).find(x=>x.id===sessionId);
   if(!s||s.mode!=="laps")return;
-  const t=normalizeScoringThresholds(s.scoringThresholds);
-  const fields=t.map((v,i)=>{
-    const left=i===0?"0":t[i-1];
-    return `<label>${10-i} point${10-i>1?"s":""} · ${left} s ≤ x &lt;
-      <input name="t${i}" type="number" min="0.1" step="0.1" value="${v}" required> s
-    </label>`;
-  }).join("");
+
+  const {first,last}=scoringEndpoints(s.scoringThresholds);
 
   const r=await show(`<form method="dialog">
     <h2>Modifier le barème</h2>
     <p class="scoring-help">Ce changement s’applique uniquement à cette séance. Les temps enregistrés ne sont pas modifiés.</p>
-    <div class="scoring-dialog-grid">${fields}</div>
+
+    <label>10 points · 0 s ≤ x &lt;
+      <input name="first" type="number" min="0.1" step="0.1" value="${first}" required> s
+    </label>
+
+    <label>0 point · x ≥
+      <input name="last" type="number" min="0.1" step="0.1" value="${last}" required> s
+    </label>
+
+    <p class="scoring-help">Les valeurs de 9 à 1 points sont recalculées automatiquement de manière linéaire.</p>
+    <div class="scoring-preview-wrap">
+      <div class="scoring-preview-title">Aperçu du barème complet</div>
+      ${scoringPreviewHtml(first,last)}
+    </div>
+
     <div class="row">
       <button value="cancel" class="btn">Annuler</button>
       <button value="ok" class="btn pri">Appliquer</button>
@@ -2158,19 +2270,22 @@ async function editSessionScoring(c,sessionId){
   </form>`);
 
   if(r.v!=="ok")return;
-  const vals=t.map((_,i)=>Number(r.f.get("t"+i)));
-  const valid=vals.every(v=>Number.isFinite(v)&&v>0)&&vals.every((v,i)=>i===0||v>vals[i-1]);
-  if(!valid){
-    alert("Le barème doit contenir 10 seuils positifs strictement croissants.");
+
+  const firstVal=Number(r.f.get("first"));
+  const lastVal=Number(r.f.get("last"));
+
+  if(!Number.isFinite(firstVal)||firstVal<=0||!Number.isFinite(lastVal)||lastVal<=firstVal){
+    alert("La valeur 10 points doit être positive et la valeur 0 point doit être supérieure.");
     return;
   }
-  s.scoringThresholds=vals;
 
-  // If the same session is still the active session, keep it in sync.
+  const vals=linearScoringThresholds(firstVal,lastVal);
+  s.scoringThresholds=vals;
   if(c.activeSession&&c.activeSession.id===s.id)c.activeSession.scoringThresholds=[...vals];
   save();
   render();
 }
+
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
