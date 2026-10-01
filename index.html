@@ -1011,6 +1011,10 @@ function makeSession(c){
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
+  // En mode Tours, le chrono d'un élève ne démarre que lorsque
+  // cet élève a réellement été lancé (ou via "Démarrer tous").
+  if(s.mode==="laps"&&!p.startedAt)return 0;
+
   const start=p.startedAt||s.startedAt;
   if(!start)return 0;
   const end=p.finishedAt||s.finishedAt||p.pauseStartedAt||Date.now();
