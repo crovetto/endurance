@@ -849,9 +849,10 @@ dialog select{
 }
 .advanced-settings summary{
   cursor:pointer;
-  padding:12px 14px;
+  padding:14px 16px;
   font-weight:800;
   user-select:none;
+  color:var(--pri);
 }
 .advanced-settings-body{
   padding:0 14px 14px;
@@ -860,35 +861,6 @@ dialog select{
   color:var(--mut);
   font-size:12px;
   margin:0 0 10px;
-}
-.scoring-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
-  gap:8px;
-}
-.scoring-rule{
-  display:flex;
-  align-items:center;
-  gap:7px;
-  padding:8px 9px;
-  border:1px solid var(--line);
-  border-radius:10px;
-  background:var(--card);
-  font-size:12px;
-}
-.scoring-rule b{
-  min-width:42px;
-}
-.scoring-rule input{
-  width:72px;
-  min-width:0;
-  height:34px;
-  border:1px solid var(--line);
-  border-radius:8px;
-  background:var(--bg);
-  color:var(--tx);
-  padding:0 7px;
-  font:inherit;
 }
 .advanced-actions{
   display:flex;
@@ -902,17 +874,6 @@ dialog select{
   display:flex;
   align-items:center;
   gap:6px;
-}
-.results-delete-btn{
-  width:34px;
-  height:34px;
-  min-width:34px;
-  border:1px solid var(--line);
-  border-radius:9px;
-  background:var(--card);
-  color:var(--dng);
-  font-size:16px;
-  cursor:pointer;
 }
 .scoring-dialog-grid{
   display:grid;
@@ -929,6 +890,71 @@ dialog select{
 }
 @media(max-width:560px){
   .scoring-dialog-grid{grid-template-columns:1fr}
+}
+
+
+.result-delete-action{
+  color:#dc2626 !important;
+  border-color:#ef4444 !important;
+  background:transparent !important;
+  flex:0 0 auto !important;
+  min-width:44px;
+  padding:0 12px;
+  font-size:18px;
+}
+.result-delete-action:hover{
+  background:rgba(239,68,68,.08) !important;
+}
+
+
+.scoring-intervals{
+  display:grid;
+  gap:7px;
+}
+.scoring-interval-row{
+  display:grid;
+  grid-template-columns:64px minmax(120px,1fr) 78px 18px;
+  align-items:center;
+  gap:8px;
+  padding:8px 10px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--card);
+  font-size:13px;
+}
+.scoring-interval-row b{
+  font-size:13px;
+}
+.scoring-interval-row input{
+  width:78px;
+  height:34px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 8px;
+  font:inherit;
+}
+.scoring-zero-row{
+  grid-template-columns:64px 1fr;
+}
+.interval-left{
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:560px){
+  .scoring-interval-row{
+    grid-template-columns:54px 1fr 68px 14px;
+    gap:5px;
+    font-size:11px;
+    padding:7px 8px;
+  }
+  .scoring-interval-row input{
+    width:68px;
+    height:32px;
+  }
+  .scoring-zero-row{
+    grid-template-columns:54px 1fr;
+  }
 }
 
 </style>
@@ -998,14 +1024,21 @@ const lapPointsFromDiffMs=(ms,thresholds=DEFAULT_LAP_SCORING_THRESHOLDS)=>{
 
 function scoringEditorHtml(thresholds,cid){
   const t=normalizeScoringThresholds(thresholds);
-  return `<div class="scoring-grid">${t.map((v,i)=>`
-    <label class="scoring-rule">
-      <b>${10-i} pts</b>
-      <span>écart &lt;</span>
-      <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}">
-      <span>s</span>
-    </label>`).join("")}</div>
-    <div class="scoring-help" style="margin-top:8px">0 point si l’écart est supérieur ou égal à ${t[9]} s.</div>`;
+  return `<div class="scoring-intervals">
+    ${t.map((v,i)=>{
+      const left=i===0?"0":t[i-1];
+      return `<label class="scoring-interval-row">
+        <b>${10-i} pt${10-i>1?"s":""}</b>
+        <span class="interval-left">${left} s ≤ x &lt;</span>
+        <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}">
+        <span>s</span>
+      </label>`;
+    }).join("")}
+    <div class="scoring-interval-row scoring-zero-row">
+      <b>0 pt</b>
+      <span class="interval-left">x ≥ ${t[9]} s</span>
+    </div>
+  </div>`;
 }
 
 const averageLapMs=p=>{
@@ -1087,15 +1120,17 @@ function setupView(c){
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
   <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label><label class="mode-card ${c.setup.mode==="timed"?"active":""}"><input type="radio" name="mode" value="timed" data-act="mode" data-c="${c.id}" ${c.setup.mode==="timed"?"checked":""}><b>Temps imposé</b><small>Ex. 12 minutes, arrêt automatique.</small></label></div>
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
-  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>
+  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
+
   <details class="advanced-settings">
-    <summary>Paramètres avancés</summary>
+    <summary>Paramètres avancés — Barème Tours</summary>
     <div class="advanced-settings-body">
-      <p class="scoring-help">Barème de régularité utilisé pour cette nouvelle séance. L’écart est la différence absolue entre le temps du tour et la moyenne de l’élève.</p>
+      <p class="scoring-help">Ce barème s’applique uniquement aux nouvelles séances en mode Tours. Il ne modifie pas les anciennes séances déjà enregistrées.</p>
+      <p class="scoring-help">x correspond à la différence absolue entre le temps du tour et la moyenne de l’élève.</p>
       ${scoringEditorHtml(c.setup.scoringThresholds,c.id)}
       <div class="advanced-actions"><button class="btn compact" type="button" data-act="resetScoring" data-c="${c.id}">Réinitialiser le barème</button></div>
     </div>
-  </details>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
+  </details>
   </section>
   <div class="bar">
     <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Ajouter / démarrer une séance</button>
@@ -1391,7 +1426,6 @@ function resultsView(c){
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
           <div class="results-head-actions">
             <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
-            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
           </div>
         </div>
         <div class="meta">
@@ -1420,6 +1454,7 @@ function resultsView(c){
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
+          <button class="btn result-delete-action" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer la séance">🗑</button>
         </div>
       </section>`;
     }
@@ -1446,7 +1481,6 @@ function resultsView(c){
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
           <div class="results-head-actions">
             <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
-            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
           </div>
         </div>
         <div class="meta">
@@ -1477,6 +1511,7 @@ function resultsView(c){
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
+          <button class="btn result-delete-action" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer la séance">🗑</button>
         </div>
       </section>`;
     }
@@ -1542,7 +1577,6 @@ function resultsView(c){
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
           <div class="results-head-actions">
             <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
-            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
           </div>
         </div>
       <div class="meta">
@@ -1579,6 +1613,7 @@ function resultsView(c){
         <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
+          <button class="btn result-delete-action" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer la séance">🗑</button>
         </div>
     </section>`;
   }).join("");
@@ -2004,10 +2039,12 @@ async function editSessionScoring(c,sessionId){
   const s=(c.history||[]).find(x=>x.id===sessionId);
   if(!s||s.mode!=="laps")return;
   const t=normalizeScoringThresholds(s.scoringThresholds);
-  const fields=t.map((v,i)=>`
-    <label>${10-i} points si écart &lt;
-      <input name="t${i}" type="number" min="0.1" step="0.1" value="${v}" required>
-    </label>`).join("");
+  const fields=t.map((v,i)=>{
+    const left=i===0?"0":t[i-1];
+    return `<label>${10-i} point${10-i>1?"s":""} · ${left} s ≤ x &lt;
+      <input name="t${i}" type="number" min="0.1" step="0.1" value="${v}" required> s
+    </label>`;
+  }).join("");
 
   const r=await show(`<form method="dialog">
     <h2>Modifier le barème</h2>
