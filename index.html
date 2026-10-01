@@ -841,22 +841,6 @@ dialog select{
 
 
 /* ===== Barème & actions résultats v38 ===== */
-.advanced-settings{
-  margin-top:14px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:var(--bg);
-}
-.advanced-settings summary{
-  cursor:pointer;
-  padding:14px 16px;
-  font-weight:800;
-  user-select:none;
-  color:var(--pri);
-}
-.advanced-settings-body{
-  padding:0 14px 14px;
-}
 .scoring-help{
   color:var(--mut);
   font-size:12px;
@@ -907,53 +891,101 @@ dialog select{
 }
 
 
-.scoring-intervals{
-  display:grid;
-  gap:7px;
+@media(max-width:560px){
+      }
+
+
+/* ===== Paramètres avancés compacts v42 ===== */
+.advanced-settings{
+  margin-top:10px;
+  border:0;
+  background:transparent;
 }
-.scoring-interval-row{
-  display:grid;
-  grid-template-columns:64px minmax(120px,1fr) 78px 18px;
-  align-items:center;
-  gap:8px;
-  padding:8px 10px;
+.advanced-settings summary{
+  width:max-content;
+  margin-left:auto;
+  cursor:pointer;
+  padding:4px 2px;
+  font-size:12px;
+  font-weight:700;
+  color:var(--mut);
+  list-style:none;
+  user-select:none;
+}
+.advanced-settings summary::-webkit-details-marker{
+  display:none;
+}
+.advanced-settings summary::before{
+  content:"+ ";
+  color:var(--pri);
+  font-size:15px;
+  font-weight:900;
+}
+.advanced-settings[open] summary::before{
+  content:"− ";
+}
+.advanced-settings[open] summary{
+  color:var(--pri);
+}
+.advanced-settings-body{
+  margin-top:8px;
+  padding:12px;
   border:1px solid var(--line);
-  border-radius:10px;
-  background:var(--card);
-  font-size:13px;
+  border-radius:12px;
+  background:var(--bg);
 }
-.scoring-interval-row b{
-  font-size:13px;
+.scoring-compact-table{
+  width:auto;
+  border-collapse:collapse;
+  margin-top:8px;
 }
-.scoring-interval-row input{
-  width:78px;
-  height:34px;
+.scoring-compact-table th,
+.scoring-compact-table td{
+  padding:6px 10px 6px 0;
+  text-align:left;
+  vertical-align:middle;
+  font-size:12px;
+  white-space:nowrap;
+}
+.scoring-compact-table th{
+  color:var(--mut);
+  font-weight:800;
+  border-bottom:1px solid var(--line);
+}
+.scoring-compact-table td:first-child{
+  min-width:58px;
+  font-weight:900;
+}
+.scoring-compact-table input{
+  width:66px;
+  height:32px;
   border:1px solid var(--line);
   border-radius:8px;
-  background:var(--bg);
+  background:var(--card);
   color:var(--tx);
-  padding:0 8px;
+  padding:0 7px;
   font:inherit;
 }
-.scoring-zero-row{
-  grid-template-columns:64px 1fr;
+.scoring-x-note{
+  margin:0 0 4px;
+  color:var(--mut);
+  font-size:11px;
 }
-.interval-left{
-  font-variant-numeric:tabular-nums;
+.advanced-actions{
+  justify-content:flex-start;
+  margin-top:8px;
 }
 @media(max-width:560px){
-  .scoring-interval-row{
-    grid-template-columns:54px 1fr 68px 14px;
-    gap:5px;
+  .advanced-settings-body{
+    padding:10px;
+  }
+  .scoring-compact-table th,
+  .scoring-compact-table td{
+    padding-right:6px;
     font-size:11px;
-    padding:7px 8px;
   }
-  .scoring-interval-row input{
-    width:68px;
-    height:32px;
-  }
-  .scoring-zero-row{
-    grid-template-columns:54px 1fr;
+  .scoring-compact-table input{
+    width:58px;
   }
 }
 
@@ -1024,21 +1056,27 @@ const lapPointsFromDiffMs=(ms,thresholds=DEFAULT_LAP_SCORING_THRESHOLDS)=>{
 
 function scoringEditorHtml(thresholds,cid){
   const t=normalizeScoringThresholds(thresholds);
-  return `<div class="scoring-intervals">
-    ${t.map((v,i)=>{
-      const left=i===0?"0":t[i-1];
-      return `<label class="scoring-interval-row">
-        <b>${10-i} pt${10-i>1?"s":""}</b>
-        <span class="interval-left">${left} s ≤ x &lt;</span>
-        <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}">
-        <span>s</span>
-      </label>`;
-    }).join("")}
-    <div class="scoring-interval-row scoring-zero-row">
-      <b>0 pt</b>
-      <span class="interval-left">x ≥ ${t[9]} s</span>
-    </div>
-  </div>`;
+  return `<table class="scoring-compact-table">
+    <thead>
+      <tr>
+        <th>Points</th>
+        <th>Écart à la moyenne</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${t.map((v,i)=>{
+        const left=i===0?"0":t[i-1];
+        return `<tr>
+          <td>${10-i} pt${10-i>1?"s":""}</td>
+          <td>${left} s ≤ x &lt; <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}"> s</td>
+        </tr>`;
+      }).join("")}
+      <tr>
+        <td>0 pt</td>
+        <td>x ≥ ${t[9]} s</td>
+      </tr>
+    </tbody>
+  </table>`;
 }
 
 const averageLapMs=p=>{
@@ -1123,10 +1161,10 @@ function setupView(c){
   ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
 
   <details class="advanced-settings">
-    <summary>Paramètres avancés — Barème Tours</summary>
+    <summary>Paramètres avancés</summary>
     <div class="advanced-settings-body">
-      <p class="scoring-help">Ce barème s’applique uniquement aux nouvelles séances en mode Tours. Il ne modifie pas les anciennes séances déjà enregistrées.</p>
-      <p class="scoring-help">x correspond à la différence absolue entre le temps du tour et la moyenne de l’élève.</p>
+      <p class="scoring-x-note">x = différence absolue entre le temps du tour et la moyenne de l’élève.</p>
+      <p class="scoring-help">Ce barème s’applique aux nouvelles séances Tours uniquement.</p>
       ${scoringEditorHtml(c.setup.scoringThresholds,c.id)}
       <div class="advanced-actions"><button class="btn compact" type="button" data-act="resetScoring" data-c="${c.id}">Réinitialiser le barème</button></div>
     </div>
