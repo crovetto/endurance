@@ -989,6 +989,20 @@ dialog select{
   }
 }
 
+
+.scoring-validation-msg{
+  min-height:18px;
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+}
+.scoring-validation-msg.error{color:#dc2626}
+.scoring-validation-msg.ok{color:#15803d}
+.scoring-compact-table input.invalid-score{
+  border-color:#dc2626 !important;
+  outline:2px solid rgba(220,38,38,.12);
+}
+
 </style>
 </head>
 <body>
@@ -1141,6 +1155,41 @@ function homeView(){
   return`${topBar}${saveIndicator}<h1>Classes</h1><button class="btn pri big" data-act="addClass">+ Ajouter une classe</button><div class="grid">${cards||'<div class="empty">Aucune classe.</div>'}</div>`;
 }
 
+
+function advancedSettingsHtml(c){
+  if(c.setup.mode==="laps"){
+    return `<details class="advanced-settings">
+      <summary>Paramètres avancés</summary>
+      <div class="advanced-settings-body">
+        <p class="scoring-x-note">x = différence absolue entre le temps du tour et la moyenne de l’élève.</p>
+        <p class="scoring-help">Ce barème s’applique aux nouvelles séances Tours uniquement.</p>
+        ${scoringEditorHtml(c.setup.scoringThresholds,c.id)}
+        <div class="advanced-actions" style="gap:8px;flex-wrap:wrap">
+          <button class="btn compact" type="button" data-act="resetScoringDraft" data-c="${c.id}">Réinitialiser</button>
+          <button class="btn pri compact" type="button" data-act="validateScoring" data-c="${c.id}">Valider le barème</button>
+        </div>
+        <div class="scoring-validation-msg" id="scoringValidationMsg"></div>
+      </div>
+    </details>`;
+  }
+
+  if(c.setup.mode==="race"){
+    return `<details class="advanced-settings">
+      <summary>Paramètres avancés</summary>
+      <div class="advanced-settings-body">
+        <p class="scoring-help">Aucun barème spécifique n’est configuré pour le mode Course.</p>
+      </div>
+    </details>`;
+  }
+
+  return `<details class="advanced-settings">
+    <summary>Paramètres avancés</summary>
+    <div class="advanced-settings-body">
+      <p class="scoring-help">Aucun barème spécifique n’est configuré pour le mode Temps imposé.</p>
+    </div>
+  </details>`;
+}
+
 function setupView(c){
   if(!c)return homeView();
   const rows=c.students.map(s=>`<label class="select-student"><input type="checkbox" data-act="selectStu" data-c="${c.id}" data-s="${s.id}" ${s.selected!==false?"checked":""}><span class="select-name"><b>${esc(fullName(s))}</b><small>${s.sex==="F"?"Femme":s.sex==="H"?"Homme":""}</small></span><button type="button" class="mini-btn" data-act="editStu" data-c="${c.id}" data-s="${s.id}">✎</button><button type="button" class="mini-btn" data-act="delStu" data-c="${c.id}" data-s="${s.id}">✕</button></label>`).join("");
@@ -1160,15 +1209,7 @@ function setupView(c){
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
   ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
 
-  <details class="advanced-settings">
-    <summary>Paramètres avancés</summary>
-    <div class="advanced-settings-body">
-      <p class="scoring-x-note">x = différence absolue entre le temps du tour et la moyenne de l’élève.</p>
-      <p class="scoring-help">Ce barème s’applique aux nouvelles séances Tours uniquement.</p>
-      ${scoringEditorHtml(c.setup.scoringThresholds,c.id)}
-      <div class="advanced-actions"><button class="btn compact" type="button" data-act="resetScoring" data-c="${c.id}">Réinitialiser le barème</button></div>
-    </div>
-  </details>
+${advancedSettingsHtml(c)}
   </section>
   <div class="bar">
     <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Ajouter / démarrer une séance</button>
@@ -2016,9 +2057,40 @@ $("app").addEventListener("click",async e=>{
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
-  else if(act==="resetScoring"){
-    c.setup.scoringThresholds=[...DEFAULT_LAP_SCORING_THRESHOLDS];
-    save();render();
+  else if(act==="resetScoringDraft"){
+    const inputs=[...document.querySelectorAll('[data-act="scoreThreshold"][data-c="'+c.id+'"]')];
+    inputs.forEach((el,i)=>{el.value=DEFAULT_LAP_SCORING_THRESHOLDS[i]});
+    const msg=$("scoringValidationMsg");
+    if(msg)msg.textContent="Valeurs par défaut chargées. Clique sur « Valider le barème » pour les enregistrer.";
+  }
+  else if(act==="validateScoring"){
+    const inputs=[...document.querySelectorAll('[data-act="scoreThreshold"][data-c="'+c.id+'"]')];
+    const vals=inputs.map(el=>Number(el.value));
+    const msg=$("scoringValidationMsg");
+
+    const positive=vals.length===10&&vals.every(v=>Number.isFinite(v)&&v>0);
+    const increasing=positive&&vals.every((v,i)=>i===0||v>vals[i-1]);
+
+    inputs.forEach(el=>el.classList.remove("invalid-score"));
+
+    if(!positive||!increasing){
+      for(let i=0;i<inputs.length;i++){
+        const v=vals[i];
+        if(!Number.isFinite(v)||v<=0||(i>0&&v<=vals[i-1]))inputs[i].classList.add("invalid-score");
+      }
+      if(msg){
+        msg.textContent="Barème non valide : les 10 bornes doivent être positives et strictement croissantes.";
+        msg.className="scoring-validation-msg error";
+      }
+      return;
+    }
+
+    c.setup.scoringThresholds=vals;
+    save();
+    if(msg){
+      msg.textContent="Barème enregistré pour les prochaines séances Tours.";
+      msg.className="scoring-validation-msg ok";
+    }
   }
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
@@ -2060,16 +2132,7 @@ $("app").addEventListener("input",e=>{
 
 
 
-$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}else if(el.dataset.act==="scoreThreshold"){
-  const i=parseInt(el.dataset.scoreI,10),v=Number(el.value);
-  const next=normalizeScoringThresholds(c.setup.scoringThresholds);
-  if(Number.isFinite(i)&&i>=0&&i<10&&Number.isFinite(v)&&v>0){
-    next[i]=v;
-    const valid=next.every((x,j)=>j===0||x>next[j-1]);
-    if(valid){c.setup.scoringThresholds=next;save()}
-    else{alert("Les seuils du barème doivent être strictement croissants.");render()}
-  }
-}});
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
 $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}});
 
 
