@@ -839,6 +839,98 @@ dialog select{
   cursor:default;
 }
 
+
+/* ===== Barème & actions résultats v38 ===== */
+.advanced-settings{
+  margin-top:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--bg);
+}
+.advanced-settings summary{
+  cursor:pointer;
+  padding:12px 14px;
+  font-weight:800;
+  user-select:none;
+}
+.advanced-settings-body{
+  padding:0 14px 14px;
+}
+.scoring-help{
+  color:var(--mut);
+  font-size:12px;
+  margin:0 0 10px;
+}
+.scoring-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(155px,1fr));
+  gap:8px;
+}
+.scoring-rule{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:8px 9px;
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:var(--card);
+  font-size:12px;
+}
+.scoring-rule b{
+  min-width:42px;
+}
+.scoring-rule input{
+  width:72px;
+  min-width:0;
+  height:34px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 7px;
+  font:inherit;
+}
+.advanced-actions{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:10px;
+}
+.results-session-head{
+  align-items:center;
+}
+.results-head-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.results-delete-btn{
+  width:34px;
+  height:34px;
+  min-width:34px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:var(--card);
+  color:var(--dng);
+  font-size:16px;
+  cursor:pointer;
+}
+.scoring-dialog-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin:12px 0;
+}
+.scoring-dialog-grid label{
+  margin:0;
+  font-size:12px;
+}
+.scoring-dialog-grid input{
+  margin-top:4px;
+}
+@media(max-width:560px){
+  .scoring-dialog-grid{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -885,20 +977,36 @@ const fmtSigned=ms=>{
   return sign+fmt(Math.abs(ms));
 };
 
-const lapPointsFromDiffMs=ms=>{
+const DEFAULT_LAP_SCORING_THRESHOLDS=[2,3,4,5,6,7,8,9,10,11];
+
+function normalizeScoringThresholds(v){
+  if(!Array.isArray(v)||v.length!==10)return [...DEFAULT_LAP_SCORING_THRESHOLDS];
+  const a=v.map(Number);
+  if(a.some(x=>!Number.isFinite(x)||x<=0))return [...DEFAULT_LAP_SCORING_THRESHOLDS];
+  for(let i=1;i<a.length;i++)if(a[i]<=a[i-1])return [...DEFAULT_LAP_SCORING_THRESHOLDS];
+  return a;
+}
+
+const lapPointsFromDiffMs=(ms,thresholds=DEFAULT_LAP_SCORING_THRESHOLDS)=>{
   const x=Math.abs(Number(ms)||0)/1000;
-  if(x<2)return 10;
-  if(x<3)return 9;
-  if(x<4)return 8;
-  if(x<5)return 7;
-  if(x<6)return 6;
-  if(x<7)return 5;
-  if(x<8)return 4;
-  if(x<9)return 3;
-  if(x<10)return 2;
-  if(x<11)return 1;
+  const t=normalizeScoringThresholds(thresholds);
+  for(let i=0;i<t.length;i++){
+    if(x<t[i])return 10-i;
+  }
   return 0;
 };
+
+function scoringEditorHtml(thresholds,cid){
+  const t=normalizeScoringThresholds(thresholds);
+  return `<div class="scoring-grid">${t.map((v,i)=>`
+    <label class="scoring-rule">
+      <b>${10-i} pts</b>
+      <span>écart &lt;</span>
+      <input type="number" min="0.1" step="0.1" value="${v}" data-act="scoreThreshold" data-c="${cid}" data-score-i="${i}">
+      <span>s</span>
+    </label>`).join("")}</div>
+    <div class="scoring-help" style="margin-top:8px">0 point si l’écart est supérieur ou égal à ${t[9]} s.</div>`;
+}
 
 const averageLapMs=p=>{
   const a=(p.laps||[])
@@ -911,8 +1019,14 @@ const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
 function normClass(c){
   const setup=c.setup||{mode:"race",distance:"",distanceUnit:"m",maxLaps:1};
-  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;if(typeof setup.sessionName!=="string")setup.sessionName="";if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;
-  return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history:Array.isArray(c.history)?c.history:[],setup,activeSession:c.activeSession||null}
+  if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;
+  if(typeof setup.sessionName!=="string")setup.sessionName="";
+  if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;
+  setup.scoringThresholds=normalizeScoringThresholds(setup.scoringThresholds);
+  const history=Array.isArray(c.history)?c.history:[];
+  history.forEach(s=>{if(s&&s.mode==="laps")s.scoringThresholds=normalizeScoringThresholds(s.scoringThresholds)});
+  if(c.activeSession&&c.activeSession.mode==="laps")c.activeSession.scoringThresholds=normalizeScoringThresholds(c.activeSession.scoringThresholds);
+  return{id:c.id||uid(),name:c.name||"Classe",students:(c.students||[]).map(normStudent),history,setup,activeSession:c.activeSession||null}
 }
 function normState(s){if(!s||!Array.isArray(s.classes))return null;s.classes=s.classes.map(normClass);return s}
 function parse(k){try{const r=localStorage.getItem(k);return r?normState(JSON.parse(r)):null}catch(e){return null}}
@@ -973,41 +1087,28 @@ function setupView(c){
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
   <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label><label class="mode-card ${c.setup.mode==="timed"?"active":""}"><input type="radio" name="mode" value="timed" data-act="mode" data-c="${c.id}" ${c.setup.mode==="timed"?"checked":""}><b>Temps imposé</b><small>Ex. 12 minutes, arrêt automatique.</small></label></div>
   <div class="distance-row"><label><span>Distance</span><input id="distanceInput" type="number" min="0" step="1" value="${esc(c.setup.distance||"")}" placeholder="Ex. 400" data-act="distance" data-c="${c.id}"></label><label><span>Unité</span><select data-act="distanceUnit" data-c="${c.id}"><option value="m" ${c.setup.distanceUnit==="m"?"selected":""}>m</option><option value="km" ${c.setup.distanceUnit==="km"?"selected":""}>km</option></select></label></div>
-  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
+  ${c.setup.mode==="laps"?`<div class="laps-settings"><label><span>Nombre de tours à effectuer</span><input id="maxLapsInput" type="number" min="1" step="1" value="${esc(c.setup.maxLaps||1)}" data-act="maxLaps" data-c="${c.id}"></label></div>
+  <details class="advanced-settings">
+    <summary>Paramètres avancés</summary>
+    <div class="advanced-settings-body">
+      <p class="scoring-help">Barème de régularité utilisé pour cette nouvelle séance. L’écart est la différence absolue entre le temps du tour et la moyenne de l’élève.</p>
+      ${scoringEditorHtml(c.setup.scoringThresholds,c.id)}
+      <div class="advanced-actions"><button class="btn compact" type="button" data-act="resetScoring" data-c="${c.id}">Réinitialiser le barème</button></div>
+    </div>
+  </details>`:""}${c.setup.mode==="timed"?`<div class="timed-settings"><label><span>Durée à courir (minutes)</span><input id="durationMinInput" type="number" min="1" step="1" value="${esc(c.setup.durationMin||12)}" data-act="durationMin" data-c="${c.id}"></label></div>`:""}
   </section>
   <div class="bar">
     <button class="btn pri big" data-act="prepareSession" data-c="${c.id}">Ajouter / démarrer une séance</button>
   </div>
 
-  <section class="panel">
-    <div class="section-title-row">
-      <h2>Séances enregistrées</h2>
-    </div>
-
-    <div class="sessions-list">
-      ${c.history.length ? c.history.map((sess,idx)=>`
-        <div class="session-card">
-          <div class="session-card-top">
-            <div>
-              <b>${sess.name?esc(sess.name):(sess.mode==="race"?"Course":"Tours")}</b><small>${sess.mode==="race"?"Course":"Tours"}${sess.distance?` · ${esc(sess.distance)} ${esc(sess.distanceUnit)}`:""}</small>
-              <small>${dateFR(sess.startedAt||sess.createdAt)} · ${sess.participants.length} élève${sess.participants.length>1?"s":""}${sess.mode==="laps"?` · ${sess.maxLaps||""} tour${(sess.maxLaps||1)>1?"s":""}`:""}</small>
-            </div>
-            <div class="session-actions">
-              <button data-act="csvSavedSession" data-c="${c.id}" data-i="${idx}">CSV</button>
-              <button class="danger" data-act="deleteSavedSession" data-c="${c.id}" data-i="${idx}">Supprimer</button>
-            </div>
-          </div>
-        </div>
-      `).join("") : `<div class="empty">Aucune séance enregistrée pour cette classe.</div>`}
-    </div>
-  </section>`;
+`;
 }
 
 function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,pauseStartedAt:null,pauseTotalMs:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
@@ -1043,7 +1144,7 @@ function startAll(c){
 
 function pauseChrono(c){
   const s=c&&c.activeSession;
-  if(!s||!(s.mode==="race"||s.mode==="laps")||s.status!=="running")return;
+  if(!s||s.mode!=="race"||s.status!=="running")return;
   const now=Date.now();
   s.status="paused";
   s.pauseStartedAt=now;
@@ -1058,7 +1159,7 @@ function pauseChrono(c){
 
 function resumeChrono(c){
   const s=c&&c.activeSession;
-  if(!s||!(s.mode==="race"||s.mode==="laps")||s.status!=="paused")return;
+  if(!s||s.mode!=="race"||s.status!=="paused")return;
   const now=Date.now();
 
   if(s.pauseStartedAt){
@@ -1099,7 +1200,7 @@ function tapParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
 
-  if((s.mode==="race"||s.mode==="laps")&&s.status==="paused")return;
+  if(s.mode==="race"&&s.status==="paused")return;
 
   if(s.mode==="timed"){
     if(!p.startedAt){
@@ -1190,11 +1291,11 @@ function maybeFinishTimedSession(c){
   }
 }
 
-function finishSession(c){
+function finishSession(c,endAt=null){
   const s=c.activeSession;
   if(!s||s.status==="finished")return;
 
-  const now=Date.now();
+  const now=Number(endAt)||Date.now();
 
   // If race was paused, close the current pause interval first.
   if((s.mode==="race"||s.mode==="laps")&&s.status==="paused"){
@@ -1236,6 +1337,19 @@ function finishSession(c){
 
 
 
+async function requestFinishLaps(c){
+  const s=c&&c.activeSession;
+  if(!s||s.mode!=="laps"||s.status==="finished")return;
+
+  // Important : on mémorise l'instant du clic AVANT la confirmation.
+  // Si l'utilisateur confirme, c'est cet instant qui clôture les chronos.
+  const clickedAt=Date.now();
+  const ok=await confirmBox("Terminer la séance maintenant ?","Terminer");
+  if(ok){
+    finishSession(c,clickedAt);
+  }
+}
+
 function finishLapsAndBack(c){
   if(!c)return;
   const s=c.activeSession;
@@ -1275,7 +1389,10 @@ function resultsView(c){
       return `<section class="results-session" data-result-session="${s.id}">
         <div class="results-session-head">
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
-          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+          <div class="results-head-actions">
+            <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
+          </div>
         </div>
         <div class="meta">
           Course · ${dateFR(s.startedAt||s.createdAt)}
@@ -1327,7 +1444,10 @@ function resultsView(c){
       return `<section class="results-session" data-result-session="${s.id}">
         <div class="results-session-head">
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
-          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+          <div class="results-head-actions">
+            <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
+          </div>
         </div>
         <div class="meta">
           Temps imposé · ${s.durationMin||12} min
@@ -1386,7 +1506,7 @@ function resultsView(c){
 
         if(l){
           const d=(l.lapTimeMs||0)-avg;
-          const pts=lapPointsFromDiffMs(d);
+          const pts=lapPointsFromDiffMs(d,s.scoringThresholds);
           totalPts+=pts;
 
           cells+=`<td class="num">${fmt(l.lapTimeMs)}</td>`;
@@ -1420,7 +1540,10 @@ function resultsView(c){
     return `<section class="results-session" data-result-session="${s.id}">
         <div class="results-session-head">
           <h2>${s.name?esc(s.name):`Séance ${sessions.length-si}`}</h2>
-          <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+          <div class="results-head-actions">
+            <button class="results-expand-btn" type="button" data-act="toggleResultFullscreen" data-session="${s.id}" aria-label="Agrandir les résultats" title="Agrandir">⛶</button>
+            <button class="results-delete-btn" type="button" data-act="deleteSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}" aria-label="Supprimer la séance" title="Supprimer">✕</button>
+          </div>
         </div>
       <div class="meta">
         Tours
@@ -1450,7 +1573,10 @@ function resultsView(c){
           <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
             Vue cartes
           </button>
-          <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
+          <button class="btn" data-act="editSessionScoring" data-c="${c.id}" data-session="${s.id}">
+          Modifier barème
+        </button>
+        <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
           </button>
         </div>
@@ -1511,7 +1637,7 @@ function studentCardsHtml(c,s,page=0){
 
       const lapRows=laps.map((l,i)=>{
         const diff=(l.lapTimeMs||0)-avg;
-        const pts=lapPointsFromDiffMs(diff);
+        const pts=lapPointsFromDiffMs(diff,s.scoringThresholds);
         totalPts+=pts;
         return `<div class="student-result-lap">
           <span class="lap-label">T${i+1}</span>
@@ -1701,8 +1827,9 @@ function timerView(c){
   return`${topBar}${saveIndicator}${s.mode==="laps"?`<a class="back" href="#/setup/${c.id}" data-act="backFromLaps" data-c="${c.id}">‹ Réglages</a>`:`<a class="back" href="#/setup/${c.id}">‹ Réglages</a>`}<div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">
     ${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}
-    ${(s.mode==="race"||s.mode==="laps")&&s.status==="running"?`<button class="btn big" data-act="pauseChrono" data-c="${c.id}">⏸ Pause chrono</button>`:""}
-    ${(s.mode==="race"||s.mode==="laps")&&s.status==="paused"?`<button class="btn pri big" data-act="resumeChrono" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
+    ${s.mode==="race"&&s.status==="running"?`<button class="btn big" data-act="pauseChrono" data-c="${c.id}">⏸ Pause chrono</button>`:""}
+    ${s.mode==="race"&&s.status==="paused"?`<button class="btn pri big" data-act="resumeChrono" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
+    ${s.mode==="laps"&&s.status==="running"?`<button class="btn dng big" data-act="requestFinishLaps" data-c="${c.id}">■ Terminer la séance</button>`:""}
     ${s.mode==="timed"&&s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}
     ${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}
   </div>
@@ -1715,7 +1842,7 @@ function timerView(c){
   </div>
   <div class="race-grid">${cards}</div><p class="helper-text">${
     s.mode==="laps"
-      ?s.status==="paused"?"Chrono en pause. Appuie sur « Reprendre le chrono » pour continuer sans compter la pause dans les temps de tour.":"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
+      ?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
       :s.mode==="timed"
         ?`Le chrono s’arrête automatiquement après ${s.durationMin||12} min. Pendant la course, chaque clic sur un élève ajoute un tour.`
         :s.status==="paused"
@@ -1755,6 +1882,7 @@ $("app").addEventListener("click",async e=>{
     const next=act==="cardsNext"?cur+1:cur-1;
     showResultView(c,b.dataset.session,"student",next);
   }
+  else if(act==="editSessionScoring")editSessionScoring(c,b.dataset.session)
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
@@ -1815,6 +1943,10 @@ $("app").addEventListener("click",async e=>{
   else if(act==="delStu"){e.stopPropagation();const s=c.students.find(x=>x.id===b.dataset.s);if(await confirmBox(`Supprimer ${fullName(s)} ?`,"Supprimer")){c.students=c.students.filter(x=>x.id!==s.id);save();render()}}
   else if(act==="selectAll"){c.students.forEach(s=>s.selected=true);save();render()}
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
+  else if(act==="resetScoring"){
+    c.setup.scoringThresholds=[...DEFAULT_LAP_SCORING_THRESHOLDS];
+    save();render();
+  }
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="pauseChrono")pauseChrono(c)
@@ -1827,6 +1959,7 @@ $("app").addEventListener("click",async e=>{
   }
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession")finishSession(c)
+  else if(act==="requestFinishLaps")requestFinishLaps(c)
   else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!c.setup.durationMin||c.setup.durationMin<=0)c.setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
@@ -1854,8 +1987,52 @@ $("app").addEventListener("input",e=>{
 
 
 
-$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));const h=c.history.find(x=>x.id===c.activeSession.id);if(h){const hp=h.participants.find(x=>x.studentId===p.studentId);if(hp)hp.extraDistanceM=p.extraDistanceM}save()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}else if(el.dataset.act==="scoreThreshold"){
+  const i=parseInt(el.dataset.scoreI,10),v=Number(el.value);
+  const next=normalizeScoringThresholds(c.setup.scoringThresholds);
+  if(Number.isFinite(i)&&i>=0&&i<10&&Number.isFinite(v)&&v>0){
+    next[i]=v;
+    const valid=next.every((x,j)=>j===0||x>next[j-1]);
+    if(valid){c.setup.scoringThresholds=next;save()}
+    else{alert("Les seuils du barème doivent être strictement croissants.");render()}
+  }
+}});
 $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}});
+
+
+async function editSessionScoring(c,sessionId){
+  const s=(c.history||[]).find(x=>x.id===sessionId);
+  if(!s||s.mode!=="laps")return;
+  const t=normalizeScoringThresholds(s.scoringThresholds);
+  const fields=t.map((v,i)=>`
+    <label>${10-i} points si écart &lt;
+      <input name="t${i}" type="number" min="0.1" step="0.1" value="${v}" required>
+    </label>`).join("");
+
+  const r=await show(`<form method="dialog">
+    <h2>Modifier le barème</h2>
+    <p class="scoring-help">Ce changement s’applique uniquement à cette séance. Les temps enregistrés ne sont pas modifiés.</p>
+    <div class="scoring-dialog-grid">${fields}</div>
+    <div class="row">
+      <button value="cancel" class="btn">Annuler</button>
+      <button value="ok" class="btn pri">Appliquer</button>
+    </div>
+  </form>`);
+
+  if(r.v!=="ok")return;
+  const vals=t.map((_,i)=>Number(r.f.get("t"+i)));
+  const valid=vals.every(v=>Number.isFinite(v)&&v>0)&&vals.every((v,i)=>i===0||v>vals[i-1]);
+  if(!valid){
+    alert("Le barème doit contenir 10 seuils positifs strictement croissants.");
+    return;
+  }
+  s.scoringThresholds=vals;
+
+  // If the same session is still the active session, keep it in sync.
+  if(c.activeSession&&c.activeSession.id===s.id)c.activeSession.scoringThresholds=[...vals];
+  save();
+  render();
+}
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
@@ -1880,7 +2057,7 @@ function exportSessionCsv(c,s){
       let totalPts=0;
       for(let i=0;i<maxLaps;i++){
         const l=laps[i];
-        if(l){const d=(l.lapTimeMs||0)-avg,pts=lapPointsFromDiffMs(d);totalPts+=pts;line.push(fmt(l.lapTimeMs),fmtSigned(d),pts)}
+        if(l){const d=(l.lapTimeMs||0)-avg,pts=lapPointsFromDiffMs(d,s.scoringThresholds);totalPts+=pts;line.push(fmt(l.lapTimeMs),fmtSigned(d),pts)}
         else line.push("","",0);
       }
       const total=p.elapsedMs||(p.finishedAt&&p.startedAt?Math.max(0,p.finishedAt-p.startedAt):sessionElapsed(s,p));
