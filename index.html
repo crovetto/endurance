@@ -1037,22 +1037,24 @@ function startAll(c){
 }
 
 
-function pauseRace(c){
+function pauseChrono(c){
   const s=c&&c.activeSession;
-  if(!s||s.mode!=="race"||s.status!=="running")return;
+  if(!s||!(s.mode==="race"||s.mode==="laps")||s.status!=="running")return;
   const now=Date.now();
   s.status="paused";
   s.pauseStartedAt=now;
+
   s.participants.forEach(p=>{
     if(p.startedAt&&!p.finishedAt)p.pauseStartedAt=now;
   });
+
   save();
   render();
 }
 
-function resumeRace(c){
+function resumeChrono(c){
   const s=c&&c.activeSession;
-  if(!s||s.mode!=="race"||s.status!=="paused")return;
+  if(!s||!(s.mode==="race"||s.mode==="laps")||s.status!=="paused")return;
   const now=Date.now();
 
   if(s.pauseStartedAt){
@@ -1062,7 +1064,15 @@ function resumeRace(c){
 
   s.participants.forEach(p=>{
     if(p.pauseStartedAt){
-      p.pauseTotalMs=Number(p.pauseTotalMs||0)+(now-p.pauseStartedAt);
+      const pauseDuration=now-p.pauseStartedAt;
+      p.pauseTotalMs=Number(p.pauseTotalMs||0)+pauseDuration;
+
+      // En mode Tours, décale le début du tour courant pour que
+      // la pause ne soit pas comptée dans le temps du tour.
+      if(s.mode==="laps"&&p.lastLapAt){
+        p.lastLapAt+=pauseDuration;
+      }
+
       p.pauseStartedAt=null;
     }
   });
@@ -1085,7 +1095,7 @@ function tapParticipant(c,p){
   const s=c.activeSession;if(!s||s.status==="finished")return;
   const now=Date.now();
 
-  if(s.mode==="race"&&s.status==="paused")return;
+  if((s.mode==="race"||s.mode==="laps")&&s.status==="paused")return;
 
   if(s.mode==="timed"){
     if(!p.startedAt){
@@ -1129,7 +1139,7 @@ function tapParticipant(c,p){
   // Mode tours : un tap = un tour
   const prev=p.lastLapAt||p.startedAt;
   const lap=now-prev;
-  const total=now-p.startedAt;
+  const total=Math.max(0,now-p.startedAt-Number(p.pauseTotalMs||0));
 
   p.laps.push({
     n:p.laps.length+1,
@@ -1183,7 +1193,7 @@ function finishSession(c){
   const now=Date.now();
 
   // If race was paused, close the current pause interval first.
-  if(s.mode==="race"&&s.status==="paused"){
+  if((s.mode==="race"||s.mode==="laps")&&s.status==="paused"){
     if(s.pauseStartedAt){
       s.pauseTotalMs=Number(s.pauseTotalMs||0)+(now-s.pauseStartedAt);
       s.pauseStartedAt=null;
@@ -1199,7 +1209,7 @@ function finishSession(c){
   s.finishedAt=now;
   s.status="finished";
 
-  if(s.mode==="race"){
+  if(s.mode==="race"||s.mode==="laps"){
     s.participants.forEach(p=>{
       if(!p.finishedAt){
         p.elapsedMs=sessionElapsed(s,p);
@@ -1220,6 +1230,21 @@ function finishSession(c){
   render();
 }
 
+
+
+function finishLapsAndBack(c){
+  if(!c)return;
+  const s=c.activeSession;
+
+  if(s&&s.mode==="laps"){
+    if(s.status!=="finished")finishSession(c);
+    c.activeSession=null;
+    c.setup.sessionName="";
+    save();
+  }
+
+  location.hash=`#/setup/${c.id}`;
+}
 
 function resultsView(c){
   if(!c)return homeView();
@@ -1669,12 +1694,12 @@ function timerView(c){
       ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"?`<div class="progress-laps">${p.laps.length} tour${p.laps.length>1?"s":""}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance"><select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}</select></div>`:""}
     </div>`
   }).join("");
-  return`${topBar}${saveIndicator}<a class="back" href="#/setup/${c.id}">‹ Réglages</a><div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
+  return`${topBar}${saveIndicator}${s.mode==="laps"?`<a class="back" href="#/setup/${c.id}" data-act="backFromLaps" data-c="${c.id}">‹ Réglages</a>`:`<a class="back" href="#/setup/${c.id}">‹ Réglages</a>`}<div class="timer-header"><div><h1>${esc(c.name)}</h1>${s.name?`<div style="font-weight:700;margin-top:2px">${esc(s.name)}</div>`:""}<small>${s.mode==="race"?"Course":s.mode==="laps"?`Tours · ${s.maxLaps||1} tour${(s.maxLaps||1)>1?"s":""}`:`Temps imposé · ${s.durationMin||12} min`} · ${s.distance?esc(s.distance)+" "+esc(s.distanceUnit):"distance non renseignée"}</small></div><div class="master-time" id="masterTime">00:00.0</div></div>
   <div class="timer-controls">
     ${s.status==="ready"?`<button class="btn pri big" data-act="startAll" data-c="${c.id}">▶ Démarrer tous</button>`:""}
-    ${s.mode==="race"&&s.status==="running"?`<button class="btn big" data-act="pauseRace" data-c="${c.id}">⏸ Pause chrono</button>`:""}
-    ${s.mode==="race"&&s.status==="paused"?`<button class="btn pri big" data-act="resumeRace" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
-    ${s.mode!=="race"&&s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}
+    ${(s.mode==="race"||s.mode==="laps")&&s.status==="running"?`<button class="btn big" data-act="pauseChrono" data-c="${c.id}">⏸ Pause chrono</button>`:""}
+    ${(s.mode==="race"||s.mode==="laps")&&s.status==="paused"?`<button class="btn pri big" data-act="resumeChrono" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
+    ${s.mode==="timed"&&s.status==="running"?`<button class="btn dng big" data-act="finishSession" data-c="${c.id}">■ Terminer la séance</button>`:""}
     ${s.status==="finished"?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}
   </div>
   <div class="timer-size-control">
@@ -1686,7 +1711,7 @@ function timerView(c){
   </div>
   <div class="race-grid">${cards}</div><p class="helper-text">${
     s.mode==="laps"
-      ?"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
+      ?s.status==="paused"?"Chrono en pause. Appuie sur « Reprendre le chrono » pour continuer sans compter la pause dans les temps de tour.":"Touche une carte pour démarrer cet élève. Ensuite chaque appui enregistre un tour. Au dernier tour, son chrono s’arrête automatiquement."
       :s.mode==="timed"
         ?`Le chrono s’arrête automatiquement après ${s.durationMin||12} min. Pendant la course, chaque clic sur un élève ajoute un tour.`
         :s.status==="paused"
@@ -1788,8 +1813,14 @@ $("app").addEventListener("click",async e=>{
   else if(act==="selectNone"){c.students.forEach(s=>s.selected=false);save();render()}
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.distance=($("distanceInput")?.value||"").trim();if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
-  else if(act==="pauseRace")pauseRace(c)
-  else if(act==="resumeRace")resumeRace(c)
+  else if(act==="pauseChrono")pauseChrono(c)
+  else if(act==="resumeChrono")resumeChrono(c)
+  else if(act==="backFromLaps"){
+    e.preventDefault();
+    if(await confirmBox("Terminer la séance et revenir aux réglages ?","Terminer")){
+      finishLapsAndBack(c);
+    }
+  }
   else if(act==="tapParticipant"){const p=c.activeSession?.participants.find(x=>x.studentId===b.dataset.p);if(p)tapParticipant(c,p)}
   else if(act==="finishSession")finishSession(c)
   else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!c.setup.durationMin||c.setup.durationMin<=0)c.setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
