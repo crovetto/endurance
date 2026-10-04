@@ -1163,6 +1163,49 @@ dialog select{
   font:inherit;
 }
 
+
+.timed-grade-editor{
+  overflow-x:auto;
+  max-width:460px;
+}
+.timed-grade-table{
+  width:auto;
+  border-collapse:collapse;
+}
+.timed-grade-table th,
+.timed-grade-table td{
+  padding:6px 12px 6px 0;
+  text-align:left;
+  white-space:nowrap;
+  font-size:12px;
+  border-bottom:1px solid var(--line);
+}
+.timed-grade-table th{
+  color:var(--mut);
+}
+.timed-grade-table input{
+  width:78px;
+  height:32px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--card);
+  color:var(--tx);
+  padding:0 7px;
+  font:inherit;
+}
+.timed-grade-table input.invalid-score{
+  border-color:#dc2626!important;
+  outline:2px solid rgba(220,38,38,.12);
+}
+.result-name-score{
+  display:inline-block;
+  margin-left:8px;
+  padding:3px 7px;
+  border-radius:999px;
+  background:var(--line);
+  font-weight:900;
+}
+
 </style>
 </head>
 <body>
@@ -1297,7 +1340,7 @@ const averageLapMs=p=>{
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 const timedTotalDistanceM=(p,s)=>((p.laps||[]).length*Math.max(1,Number(s?.lapDistanceM)||400))+Number(p.extraDistanceM||0);
 
-const TIMED_GRADE_TABLES={
+const DEFAULT_TIMED_GRADE_TABLES={
   "9":{
     "H":[[2600,6],[2500,5.5],[2400,5],[2300,4.5],[2200,4],[2100,3.5],[2000,3]],
     "F":[[2400,6],[2300,5.5],[2200,5],[2100,4.5],[2000,4],[1900,3.5],[1800,3]]
@@ -1308,12 +1351,35 @@ const TIMED_GRADE_TABLES={
   }
 };
 
-function timedGrade(distanceM,level,sex){
-  const table=TIMED_GRADE_TABLES[String(level)]?.[sex];
-  if(!table)return null;
+const TIMED_GRADES=[6,5.5,5,4.5,4,3.5,3];
+
+function cloneTimedGradeTables(v=DEFAULT_TIMED_GRADE_TABLES){
+  return JSON.parse(JSON.stringify(v));
+}
+
+function normalizeTimedGradeTables(v){
+  const out=cloneTimedGradeTables();
+  for(const level of ["9","10"]){
+    for(const sex of ["H","F"]){
+      const candidate=v?.[level]?.[sex];
+      if(!Array.isArray(candidate)||candidate.length!==TIMED_GRADES.length)continue;
+      const rows=TIMED_GRADES.map((grade,i)=>{
+        const d=Number(candidate[i]?.[0]);
+        return [Number.isFinite(d)&&d>0?d:out[level][sex][i][0],grade];
+      });
+      const valid=rows.every((r,i)=>i===0||r[0]<rows[i-1][0]);
+      if(valid)out[level][sex]=rows;
+    }
+  }
+  return out;
+}
+
+function timedGrade(distanceM,table,sex){
+  const rows=table?.[sex];
+  if(!Array.isArray(rows))return null;
   const d=Number(distanceM)||0;
-  for(const [threshold,grade] of table){
-    if(d>=threshold)return grade;
+  for(const [threshold,grade] of rows){
+    if(d>=Number(threshold))return grade;
   }
   return null;
 }
@@ -1321,6 +1387,46 @@ function timedGrade(distanceM,level,sex){
 function fmtGrade(g){
   if(g==null)return "< 3";
   return Number.isInteger(g)?String(g):String(g).replace(".",",");
+}
+
+function timedGradeEditorHtml(table,cid,scope="setup"){
+  const h=table?.H||[];
+  const f=table?.F||[];
+  return `<div class="timed-grade-editor">
+    <table class="timed-grade-table">
+      <thead><tr><th>Note</th><th>Garçons</th><th>Filles</th></tr></thead>
+      <tbody>
+        ${TIMED_GRADES.map((grade,i)=>`<tr>
+          <td><b>${fmtGrade(grade)}</b></td>
+          <td><input type="number" min="1" step="10" value="${Number(h[i]?.[0]||0)}" data-timed-grade="${scope}" data-sex="H" data-i="${i}" ${cid?`data-c="${cid}"`:""}> m</td>
+          <td><input type="number" min="1" step="10" value="${Number(f[i]?.[0]||0)}" data-timed-grade="${scope}" data-sex="F" data-i="${i}" ${cid?`data-c="${cid}"`:""}> m</td>
+        </tr>`).join("")}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+function readTimedGradeDraft(root,scope){
+  const table={H:[],F:[]};
+  for(const sex of ["H","F"]){
+    const els=[...root.querySelectorAll(`[data-timed-grade="${scope}"][data-sex="${sex}"]`)];
+    els.sort((a,b)=>Number(a.dataset.i)-Number(b.dataset.i));
+    table[sex]=els.map((el,i)=>[Number(el.value),TIMED_GRADES[i]]);
+  }
+  return table;
+}
+
+function validTimedGradeTable(table){
+  for(const sex of ["H","F"]){
+    const rows=table?.[sex];
+    if(!Array.isArray(rows)||rows.length!==TIMED_GRADES.length)return false;
+    for(let i=0;i<rows.length;i++){
+      const d=Number(rows[i][0]);
+      if(!Number.isFinite(d)||d<=0)return false;
+      if(i>0&&d>=Number(rows[i-1][0]))return false;
+    }
+  }
+  return true;
 }
 
 
@@ -1334,10 +1440,15 @@ function normClass(c){
   if(setup.classLevel!=="9"&&setup.classLevel!=="10")setup.classLevel="";
   if(!setup.lapDistanceM||Number(setup.lapDistanceM)<=0)setup.lapDistanceM=400;
   setup.scoringThresholds=normalizeScoringThresholds(setup.scoringThresholds);
+  setup.timedGradeTables=normalizeTimedGradeTables(setup.timedGradeTables);
   const history=Array.isArray(c.history)?c.history:[];
   history.forEach(s=>{
     if(s&&(s.mode==="laps"||s.mode==="timed")&&(!s.lapDistanceM||Number(s.lapDistanceM)<=0))s.lapDistanceM=400;
     if(s&&s.mode==="laps")s.scoringThresholds=normalizeScoringThresholds(s.scoringThresholds);
+    if(s&&s.mode==="timed"&&!s.timedGradeTable){
+      const level=String(s.classLevel||"");
+      s.timedGradeTable=cloneTimedGradeTables()[level]||null;
+    }
     if(s&&s.mode==="timed"&&typeof s.timedDistancesValidated!=="boolean")s.timedDistancesValidated=true;
     if(s&&s.mode==="timed"&&Array.isArray(s.participants)){
       s.participants.forEach(p=>{
@@ -1347,6 +1458,10 @@ function normClass(c){
   });
   if(c.activeSession&&(c.activeSession.mode==="laps"||c.activeSession.mode==="timed")&&(!c.activeSession.lapDistanceM||Number(c.activeSession.lapDistanceM)<=0))c.activeSession.lapDistanceM=400;
   if(c.activeSession&&c.activeSession.mode==="laps")c.activeSession.scoringThresholds=normalizeScoringThresholds(c.activeSession.scoringThresholds);
+  if(c.activeSession&&c.activeSession.mode==="timed"&&!c.activeSession.timedGradeTable){
+    const level=String(c.activeSession.classLevel||"");
+    c.activeSession.timedGradeTable=cloneTimedGradeTables()[level]||null;
+  }
   if(c.activeSession&&c.activeSession.mode==="timed"&&typeof c.activeSession.timedDistancesValidated!=="boolean"){
     c.activeSession.timedDistancesValidated=c.activeSession.status==="finished";
   }
@@ -1426,10 +1541,20 @@ function advancedSettingsHtml(c){
     </details>`;
   }
 
+  const level=c.setup.classLevel;
+  const table=level?c.setup.timedGradeTables?.[level]:null;
   return `<details class="advanced-settings">
     <summary>Paramètres avancés</summary>
     <div class="advanced-settings-body">
-      <p class="scoring-help">Aucun barème spécifique n’est configuré pour le mode Temps imposé.</p>
+      ${!level
+        ?`<p class="scoring-help">Choisis d’abord le niveau 9e ou 10e pour afficher le barème correspondant.</p>`
+        :`<p class="scoring-help"><b>Barème ${level}e</b> — distances minimales pour chaque note.</p>
+          ${timedGradeEditorHtml(table,c.id,"setup")}
+          <div class="advanced-actions" style="gap:8px;flex-wrap:wrap">
+            <button class="btn compact" type="button" data-act="resetTimedGradeDraft" data-c="${c.id}">Réinitialiser</button>
+            <button class="btn pri compact" type="button" data-act="validateTimedGrade" data-c="${c.id}">Valider le barème</button>
+          </div>
+          <div class="scoring-validation-msg" id="timedGradeValidationMsg"></div>`}
     </div>
   </details>`;
 }
@@ -1478,7 +1603,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,timedGradeTable:c.setup.mode==="timed"?JSON.parse(JSON.stringify(c.setup.timedGradeTables?.[c.setup.classLevel]||DEFAULT_TIMED_GRADE_TABLES[c.setup.classLevel])):null,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
@@ -1851,12 +1976,11 @@ function resultsView(c){
             ? Math.max(0,p.finishedAt-p.startedAt)
             : sessionElapsed(s,p)
         );
-
         const totalDistance=timedTotalDistanceM(p,s);
-        const grade=timedGrade(totalDistance,s.classLevel,p.sex);
+        const grade=timedGrade(totalDistance,s.timedGradeTable,p.sex);
 
         return `<tr>
-          <td>${esc(p.first)} ${esc(p.last)}</td>
+          <td><b>${esc(p.first)} ${esc(p.last)}</b></td>
           <td>${p.sex==="F"?"Femme":p.sex==="H"?"Homme":""}</td>
           <td class="num"><b>${(p.laps||[]).length}</b></td>
           <td class="num">${Number(p.extraDistanceM||0)} m</td>
@@ -1901,6 +2025,9 @@ function resultsView(c){
         <div class="result-actions">
           <button class="btn pri" data-act="toggleStudentView" data-c="${c.id}" data-session="${s.id}">
             Vue cartes
+          </button>
+          <button class="btn" data-act="editTimedSessionGrade" data-c="${c.id}" data-session="${s.id}">
+            Modifier barème
           </button>
           <button class="btn" data-act="csvSavedSession" data-c="${c.id}" data-i="${c.history.indexOf(s)}">
             Télécharger CSV
@@ -2104,16 +2231,16 @@ function studentCardsHtml(c,s,page=0){
 
     if(s.mode==="timed"){
       const total=p.elapsedMs||((p.finishedAt&&p.startedAt)?Math.max(0,p.finishedAt-p.startedAt):0);
+      const totalDistance=timedTotalDistanceM(p,s);
+      const grade=timedGrade(totalDistance,s.timedGradeTable,p.sex);
       return `<div class="student-result-card">
         <div class="student-result-card-head">
           <div class="student-result-name">${name}</div>
-          <div class="student-result-score">${(p.laps||[]).length} tour${(p.laps||[]).length>1?"s":""}</div>
+          <div class="student-result-score">Note ${fmtGrade(grade)}</div>
         </div>
         <div class="student-result-summary">
-          <div class="student-result-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
-          <div class="student-result-kpi"><span>Distance +</span><b>${Number(p.extraDistanceM||0)} m</b></div>
-          <div class="student-result-kpi"><span>Distance totale</span><b>${timedTotalDistanceM(p,s)} m</b></div>
-          <div class="student-result-kpi"><span>Note</span><b>${fmtGrade(timedGrade(timedTotalDistanceM(p,s),s.classLevel,p.sex))}</b></div>
+          <div class="student-result-kpi"><span>Temps</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
+          <div class="student-result-kpi"><span>Distance totale</span><b>${totalDistance} m</b></div>
         </div>
       </div>`;
     }
@@ -2330,6 +2457,7 @@ $("app").addEventListener("click",async e=>{
     showResultView(c,b.dataset.session,"student",next);
   }
   else if(act==="editSessionScoring")editSessionScoring(c,b.dataset.session)
+  else if(act==="editTimedSessionGrade")editTimedSessionGrade(c,b.dataset.session)
   else if(act==="addClass"){const r=await ask("Ajouter une classe",[{label:"Nom de la classe",ph:"Ex. 10VG1"}],"Créer");if(r){S.classes.push(normClass({id:uid(),name:r[0],students:[]}));save();render()}}
   else if(act==="renClass"){e.stopPropagation();const r=await ask("Renommer la classe",[{label:"Nom",value:c.name}]);if(r){c.name=r[0];save();render()}}
   else if(act==="delClass"){e.stopPropagation();if(await confirmBox(`Supprimer « ${c.name} » ?`,"Supprimer")){S.classes=S.classes.filter(x=>x.id!==c.id);save();render()}}
@@ -2430,6 +2558,43 @@ $("app").addEventListener("click",async e=>{
       msg.className="scoring-validation-msg ok";
     }
   }
+  else if(act==="resetTimedGradeDraft"){
+    const level=c.setup.classLevel;
+    if(!level)return;
+    const def=DEFAULT_TIMED_GRADE_TABLES[level];
+    for(const sex of ["H","F"]){
+      document.querySelectorAll(`[data-timed-grade="setup"][data-sex="${sex}"]`).forEach(el=>{
+        const i=Number(el.dataset.i);
+        el.value=def[sex][i][0];
+        el.classList.remove("invalid-score");
+      });
+    }
+    const msg=$("timedGradeValidationMsg");
+    if(msg){msg.textContent="Barème par défaut chargé. Clique sur « Valider le barème » pour l’enregistrer.";msg.className="scoring-validation-msg";}
+  }
+  else if(act==="validateTimedGrade"){
+    const level=c.setup.classLevel;
+    if(!level)return;
+    const root=$("app");
+    const draft=readTimedGradeDraft(root,"setup");
+    root.querySelectorAll('[data-timed-grade="setup"]').forEach(el=>el.classList.remove("invalid-score"));
+    if(!validTimedGradeTable(draft)){
+      for(const sex of ["H","F"]){
+        const els=[...root.querySelectorAll(`[data-timed-grade="setup"][data-sex="${sex}"]`)].sort((a,b)=>Number(a.dataset.i)-Number(b.dataset.i));
+        els.forEach((el,i)=>{
+          const v=Number(el.value);
+          if(!Number.isFinite(v)||v<=0||(i>0&&v>=Number(els[i-1].value)))el.classList.add("invalid-score");
+        });
+      }
+      const msg=$("timedGradeValidationMsg");
+      if(msg){msg.textContent="Barème non valide : pour chaque colonne, les distances doivent diminuer à mesure que la note diminue.";msg.className="scoring-validation-msg error";}
+      return;
+    }
+    c.setup.timedGradeTables[level]=draft;
+    save();
+    const msg=$("timedGradeValidationMsg");
+    if(msg){msg.textContent=`Barème ${level}e enregistré pour les prochaines séances Temps imposé.`;msg.className="scoring-validation-msg ok";}
+  }
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.classLevel=($("classLevelInput")?.value||"");if(!c.setup.classLevel){alert("Choisis d’abord le niveau de la classe : 9e ou 10e.");return;}if(c.setup.mode==="race")c.setup.distance=($("distanceInput")?.value||"").trim();else c.setup.lapDistanceM=Math.max(1,Number($("lapDistanceInput")?.value||c.setup.lapDistanceM||400));if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));save();if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="pauseChrono")pauseChrono(c)
@@ -2505,7 +2670,7 @@ $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||rou
     save();
     render();
   }
-}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="classLevel"){c.setup.classLevel=el.value;save()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
+}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="classLevel"){c.setup.classLevel=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
 $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}else if(e.target.dataset.act==="lapDistanceM"){const c=cls(e.target.dataset.c);if(c){c.setup.lapDistanceM=Math.max(1,Number(e.target.value||400));save()}}});
 
 
@@ -2557,6 +2722,36 @@ async function editSessionScoring(c,sessionId){
 }
 
 
+async function editTimedSessionGrade(c,sessionId){
+  const s=(c.history||[]).find(x=>x.id===sessionId);
+  if(!s||s.mode!=="timed")return;
+
+  const table=s.timedGradeTable||cloneTimedGradeTables()[String(s.classLevel)];
+  const r=await show(`<form method="dialog">
+    <h2>Modifier le barème ${s.classLevel?`${s.classLevel}e`:""}</h2>
+    <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Les temps et distances ne sont pas modifiés.</p>
+    ${timedGradeEditorHtml(table,"","session")}
+    <div class="row">
+      <button value="cancel" class="btn" formnovalidate>Annuler</button>
+      <button value="ok" class="btn pri">Appliquer</button>
+    </div>
+  </form>`);
+  if(r.v!=="ok")return;
+
+  const root=$("dlg");
+  const draft=readTimedGradeDraft(root,"session");
+  if(!validTimedGradeTable(draft)){
+    alert("Barème non valide : pour chaque colonne, les distances doivent diminuer à mesure que la note diminue.");
+    return;
+  }
+
+  s.timedGradeTable=draft;
+  if(c.activeSession&&c.activeSession.id===s.id)c.activeSession.timedGradeTable=JSON.parse(JSON.stringify(draft));
+  save();
+  render();
+}
+
+
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
   let rows=[];
@@ -2564,12 +2759,12 @@ function exportSessionCsv(c,s){
     rows=[["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
     s.participants.forEach(p=>rows.push([c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
   }else if(s.mode==="timed"){
-    rows=[["Classe","Nom séance","Date","Mode","Niveau","Durée prévue (min)","Distance d’un tour (m)","Prénom","Nom","Sexe","Temps","Nombre de tours","Distance supplémentaire (m)","Distance totale (m)","Note"]];
+    rows=[["Classe","Nom séance","Date","Mode","Niveau","Prénom","Nom","Sexe","Temps","Distance totale (m)","Note"]];
     s.participants.forEach(p=>{
       const totalDistance=timedTotalDistanceM(p,s);
       rows.push([
-        c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.classLevel?`${s.classLevel}e`:"",s.durationMin||12,Number(s.lapDistanceM||400),p.first,p.last,
-        p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),(p.laps||[]).length,p.extraDistanceM||0,totalDistance,fmtGrade(timedGrade(totalDistance,s.classLevel,p.sex))
+        c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.classLevel?`${s.classLevel}e`:"",p.first,p.last,
+        p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),totalDistance,fmtGrade(timedGrade(totalDistance,s.timedGradeTable,p.sex))
       ]);
     });
   }else{
