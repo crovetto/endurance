@@ -1142,6 +1142,27 @@ dialog select{
   color:#15803d;
 }
 
+
+.class-level-row{
+  margin:0 0 14px;
+}
+.class-level-row span{
+  display:block;
+  margin-bottom:6px;
+  font-size:13px;
+  font-weight:700;
+}
+.class-level-row select{
+  width:100%;
+  height:48px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 12px;
+  font:inherit;
+}
+
 </style>
 </head>
 <body>
@@ -1276,6 +1297,33 @@ const averageLapMs=p=>{
 const fullName=s=>`${s.first||""} ${s.last||""}`.trim();
 const timedTotalDistanceM=(p,s)=>((p.laps||[]).length*Math.max(1,Number(s?.lapDistanceM)||400))+Number(p.extraDistanceM||0);
 
+const TIMED_GRADE_TABLES={
+  "9":{
+    "H":[[2600,6],[2500,5.5],[2400,5],[2300,4.5],[2200,4],[2100,3.5],[2000,3]],
+    "F":[[2400,6],[2300,5.5],[2200,5],[2100,4.5],[2000,4],[1900,3.5],[1800,3]]
+  },
+  "10":{
+    "H":[[2700,6],[2600,5.5],[2500,5],[2400,4.5],[2300,4],[2200,3.5],[2100,3]],
+    "F":[[2500,6],[2400,5.5],[2300,5],[2200,4.5],[2100,4],[2000,3.5],[1900,3]]
+  }
+};
+
+function timedGrade(distanceM,level,sex){
+  const table=TIMED_GRADE_TABLES[String(level)]?.[sex];
+  if(!table)return null;
+  const d=Number(distanceM)||0;
+  for(const [threshold,grade] of table){
+    if(d>=threshold)return grade;
+  }
+  return null;
+}
+
+function fmtGrade(g){
+  if(g==null)return "< 3";
+  return Number.isInteger(g)?String(g):String(g).replace(".",",");
+}
+
+
 
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
 function normClass(c){
@@ -1283,6 +1331,7 @@ function normClass(c){
   if(!setup.maxLaps||setup.maxLaps<1)setup.maxLaps=1;
   if(typeof setup.sessionName!=="string")setup.sessionName="";
   if(!setup.durationMin||setup.durationMin<=0)setup.durationMin=12;
+  if(setup.classLevel!=="9"&&setup.classLevel!=="10")setup.classLevel="";
   if(!setup.lapDistanceM||Number(setup.lapDistanceM)<=0)setup.lapDistanceM=400;
   setup.scoringThresholds=normalizeScoringThresholds(setup.scoringThresholds);
   const history=Array.isArray(c.history)?c.history:[];
@@ -1398,6 +1447,16 @@ function setupView(c){
       <input id="sessionNameInput" type="text" value="${esc(c.setup.sessionName||"")}" placeholder="Ex. Test endurance 1" data-act="sessionName" data-c="${c.id}">
     </label>
   </div>
+  <div class="class-level-row">
+    <label>
+      <span>Niveau de la classe</span>
+      <select id="classLevelInput" data-act="classLevel" data-c="${c.id}">
+        <option value="" ${!c.setup.classLevel?"selected":""}>Choisir…</option>
+        <option value="9" ${c.setup.classLevel==="9"?"selected":""}>9e</option>
+        <option value="10" ${c.setup.classLevel==="10"?"selected":""}>10e</option>
+      </select>
+    </label>
+  </div>
   <h2>Type de chrono</h2><div class="mode-switch">
   <label class="mode-card ${c.setup.mode==="race"?"active":""}"><input type="radio" name="mode" value="race" data-act="mode" data-c="${c.id}" ${c.setup.mode==="race"?"checked":""}><b>Course</b><small>Départ commun, toucher un élève à son arrivée.</small></label>
   <label class="mode-card ${c.setup.mode==="laps"?"active":""}"><input type="radio" name="mode" value="laps" data-act="mode" data-c="${c.id}" ${c.setup.mode==="laps"?"checked":""}><b>Tours</b><small>Chaque appui enregistre un tour et son temps.</small></label><label class="mode-card ${c.setup.mode==="timed"?"active":""}"><input type="radio" name="mode" value="timed" data-act="mode" data-c="${c.id}" ${c.setup.mode==="timed"?"checked":""}><b>Temps imposé</b><small>Ex. 12 minutes, arrêt automatique.</small></label></div>
@@ -1419,7 +1478,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
@@ -1650,26 +1709,6 @@ async function backFromTimed(c){
   }
 }
 
-function validateTimedDistances(c){
-  const s=c&&c.activeSession;
-  if(!s||s.mode!=="timed"||s.status!=="finished")return;
-
-  const allConfirmed=(s.participants||[]).every(p=>p.extraDistanceConfirmed===true);
-  if(!allConfirmed){
-    alert("Choisis une distance supplémentaire pour chaque élève avant de valider.");
-    return;
-  }
-
-  s.timedDistancesValidated=true;
-
-  const copy=JSON.parse(JSON.stringify(s));
-  const idx=c.history.findIndex(x=>x.id===s.id);
-  if(idx>=0)c.history[idx]=copy;
-  else c.history.unshift(copy);
-
-  save();
-  render();
-}
 
 
 function finishSession(c,endAt=null){
@@ -1814,6 +1853,7 @@ function resultsView(c){
         );
 
         const totalDistance=timedTotalDistanceM(p,s);
+        const grade=timedGrade(totalDistance,s.classLevel,p.sex);
 
         return `<tr>
           <td>${esc(p.first)} ${esc(p.last)}</td>
@@ -1821,6 +1861,7 @@ function resultsView(c){
           <td class="num"><b>${(p.laps||[]).length}</b></td>
           <td class="num">${Number(p.extraDistanceM||0)} m</td>
           <td class="num"><b>${totalDistance} m</b></td>
+          <td class="num"><span class="score-pill">${fmtGrade(grade)}</span></td>
           <td class="num">${total?fmt(total):"—"}</td>
         </tr>`;
       }).join("");
@@ -1834,6 +1875,7 @@ function resultsView(c){
         </div>
         <div class="meta">
           Temps imposé · ${s.durationMin||12} min
+          · ${s.classLevel?`${s.classLevel}e`:"niveau non renseigné"}
           · ${Number(s.lapDistanceM||400)} m/tour
           · ${dateFR(s.startedAt||s.createdAt)}
         </div>
@@ -1847,6 +1889,7 @@ function resultsView(c){
                 <th class="num">Nombre de tours</th>
                 <th class="num">Distance supplémentaire</th>
                 <th class="num">Distance totale</th>
+                <th class="num">Note</th>
                 <th class="num">Temps total</th>
               </tr>
             </thead>
@@ -2070,6 +2113,7 @@ function studentCardsHtml(c,s,page=0){
           <div class="student-result-kpi"><span>Durée</span><b>${total?fmt(total):`${s.durationMin||12}:00`}</b></div>
           <div class="student-result-kpi"><span>Distance +</span><b>${Number(p.extraDistanceM||0)} m</b></div>
           <div class="student-result-kpi"><span>Distance totale</span><b>${timedTotalDistanceM(p,s)} m</b></div>
+          <div class="student-result-kpi"><span>Note</span><b>${fmtGrade(timedGrade(timedTotalDistanceM(p,s),s.classLevel,p.sex))}</b></div>
         </div>
       </div>`;
     }
@@ -2228,7 +2272,6 @@ function timerView(c){
     ${s.mode==="race"&&s.status==="paused"?`<button class="btn pri big" data-act="resumeChrono" data-c="${c.id}">▶ Reprendre le chrono</button>`:""}
     ${s.mode==="laps"&&s.status==="running"?`<button class="btn dng big" data-act="requestFinishLaps" data-c="${c.id}">■ Terminer la séance</button>`:""}
     ${s.mode==="timed"&&s.status==="running"?`<button class="btn dng big" data-act="requestFinishTimed" data-c="${c.id}">■ Terminer la séance</button>`:""}
-    ${s.mode==="timed"&&s.status==="finished"&&!s.timedDistancesValidated?`<button class="btn pri big" data-act="validateTimedDistances" data-c="${c.id}" ${(s.participants||[]).every(p=>p.extraDistanceConfirmed)?"":"disabled"}>✓ Valider les distances</button>`:""}
     ${s.status==="finished"&&(s.mode!=="timed"||s.timedDistancesValidated)?`<button class="btn pri big" data-act="newSession" data-c="${c.id}">Nouvelle séance</button>`:""}
   </div>
   <div class="timer-size-control">
@@ -2250,7 +2293,7 @@ function timerView(c){
     s.mode==="timed"&&!s.timedDistancesValidated
       ?`<div class="session-saved-note">
           <b>Séance terminée</b>
-          Choisis la distance supplémentaire directement sur chaque carte. Les cartes renseignées sont surlignées.
+          Choisis la distance supplémentaire directement sur chaque carte. Quand toutes les cartes sont vertes, la séance est enregistrée automatiquement dans Résultats.
         </div>`
       :`<div class="session-saved-note">
           <b>Données sauvegardées</b>
@@ -2387,7 +2430,7 @@ $("app").addEventListener("click",async e=>{
       msg.className="scoring-validation-msg ok";
     }
   }
-  else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();if(c.setup.mode==="race")c.setup.distance=($("distanceInput")?.value||"").trim();else c.setup.lapDistanceM=Math.max(1,Number($("lapDistanceInput")?.value||c.setup.lapDistanceM||400));if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));if(makeSession(c))location.hash=`#/timer/${c.id}`}
+  else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.classLevel=($("classLevelInput")?.value||"");if(!c.setup.classLevel){alert("Choisis d’abord le niveau de la classe : 9e ou 10e.");return;}if(c.setup.mode==="race")c.setup.distance=($("distanceInput")?.value||"").trim();else c.setup.lapDistanceM=Math.max(1,Number($("lapDistanceInput")?.value||c.setup.lapDistanceM||400));if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));save();if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
   else if(act==="pauseChrono")pauseChrono(c)
   else if(act==="resumeChrono")resumeChrono(c)
@@ -2405,7 +2448,6 @@ $("app").addEventListener("click",async e=>{
   else if(act==="finishSession")finishSession(c)
   else if(act==="requestFinishLaps")requestFinishLaps(c)
   else if(act==="requestFinishTimed")requestFinishTimed(c)
-  else if(act==="validateTimedDistances")validateTimedDistances(c)
   else if(act==="newSession"){c.activeSession=null;c.setup.sessionName="";if(!c.setup.durationMin||c.setup.durationMin<=0)c.setup.durationMin=12;save();location.hash=`#/setup/${c.id}`}
   else if(act==="csvSavedSession"){
     const idx=parseInt(b.dataset.i,10);
@@ -2442,7 +2484,28 @@ $("app").addEventListener("input",e=>{
 
 
 
-$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){const p=c.activeSession?.participants.find(x=>x.studentId===el.dataset.p);if(p&&!c.activeSession.timedDistancesValidated){p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));p.extraDistanceConfirmed=true;save();render()}}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
+$("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){
+  const s=c.activeSession;
+  const p=s?.participants.find(x=>x.studentId===el.dataset.p);
+  if(p&&s.mode==="timed"&&!s.timedDistancesValidated){
+    p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));
+    p.extraDistanceConfirmed=true;
+
+    const allConfirmed=(s.participants||[]).every(x=>x.extraDistanceConfirmed===true);
+
+    if(allConfirmed){
+      s.timedDistancesValidated=true;
+
+      const copy=JSON.parse(JSON.stringify(s));
+      const idx=c.history.findIndex(x=>x.id===s.id);
+      if(idx>=0)c.history[idx]=copy;
+      else c.history.unshift(copy);
+    }
+
+    save();
+    render();
+  }
+}else if(el.dataset.act==="selectStu"){const s=c.students.find(x=>x.id===el.dataset.s);if(s){s.selected=el.checked;save();render()}}else if(el.dataset.act==="mode"){c.setup.mode=el.value;save();render()}else if(el.dataset.act==="classLevel"){c.setup.classLevel=el.value;save()}else if(el.dataset.act==="distanceUnit"){c.setup.distanceUnit=el.value;save()}else if(el.dataset.act==="maxLaps"){c.setup.maxLaps=Math.max(1,parseInt(el.value||1,10));save()}});
 $("app").addEventListener("input",e=>{if(e.target.dataset.act==="sessionName"){const c=cls(e.target.dataset.c);if(c){c.setup.sessionName=e.target.value;save()}}else if(e.target.dataset.act==="distance"){const c=cls(e.target.dataset.c);if(c){c.setup.distance=e.target.value;save()}}else if(e.target.dataset.act==="maxLaps"){const c=cls(e.target.dataset.c);if(c){c.setup.maxLaps=Math.max(1,parseInt(e.target.value||1,10));save()}}else if(e.target.dataset.act==="durationMin"){const c=cls(e.target.dataset.c);if(c){c.setup.durationMin=Math.max(1,parseInt(e.target.value||12,10));save()}}else if(e.target.dataset.act==="lapDistanceM"){const c=cls(e.target.dataset.c);if(c){c.setup.lapDistanceM=Math.max(1,Number(e.target.value||400));save()}}});
 
 
@@ -2501,11 +2564,14 @@ function exportSessionCsv(c,s){
     rows=[["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe","Temps total"]];
     s.participants.forEach(p=>rows.push([c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Course",s.distance,s.distanceUnit,p.first,p.last,p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p))]));
   }else if(s.mode==="timed"){
-    rows=[["Classe","Nom séance","Date","Mode","Durée prévue (min)","Distance d’un tour (m)","Prénom","Nom","Sexe","Temps","Nombre de tours","Distance supplémentaire (m)","Distance totale (m)"]];
-    s.participants.forEach(p=>rows.push([
-      c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.durationMin||12,Number(s.lapDistanceM||400),p.first,p.last,
-      p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),(p.laps||[]).length,p.extraDistanceM||0,timedTotalDistanceM(p,s)
-    ]));
+    rows=[["Classe","Nom séance","Date","Mode","Niveau","Durée prévue (min)","Distance d’un tour (m)","Prénom","Nom","Sexe","Temps","Nombre de tours","Distance supplémentaire (m)","Distance totale (m)","Note"]];
+    s.participants.forEach(p=>{
+      const totalDistance=timedTotalDistanceM(p,s);
+      rows.push([
+        c.name,s.name||"",dateFR(p.startedAt||s.startedAt||s.createdAt),"Temps imposé",s.classLevel?`${s.classLevel}e`:"",s.durationMin||12,Number(s.lapDistanceM||400),p.first,p.last,
+        p.sex==="F"?"Femme":p.sex==="H"?"Homme":"",fmt(p.elapsedMs||sessionElapsed(s,p)),(p.laps||[]).length,p.extraDistanceM||0,totalDistance,fmtGrade(timedGrade(totalDistance,s.classLevel,p.sex))
+      ]);
+    });
   }else{
     const maxLaps=Math.max(1,parseInt(s.maxLaps||Math.max(1,...s.participants.map(p=>(p.laps||[]).length)),10));
     const header=["Classe","Nom séance","Date","Mode","Distance","Unité","Prénom","Nom","Sexe"];
