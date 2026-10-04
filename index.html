@@ -1822,7 +1822,36 @@ async function backFromTimed(c){
   }
 
   if(s.status==="finished"&&!s.timedDistancesValidated){
-    alert("Renseigne puis valide la distance supplémentaire de chaque élève avant de quitter la séance.");
+    const r=await show(`<form method="dialog">
+      <h2>Distances supplémentaires incomplètes</h2>
+      <p>Certaines distances supplémentaires n’ont pas encore été renseignées.</p>
+      <p>Si tu continues vers les Réglages, les valeurs manquantes seront automatiquement mises à <b>+0 m</b> et la séance sera enregistrée dans Résultats.</p>
+      <div class="row">
+        <button value="cancel" class="btn" formnovalidate>Continuer à renseigner</button>
+        <button value="ok" class="btn pri">Mettre +0 m et terminer</button>
+      </div>
+    </form>`);
+
+    if(r.v!=="ok")return;
+
+    s.participants.forEach(p=>{
+      if(p.extraDistanceConfirmed!==true){
+        p.extraDistanceM=0;
+        p.extraDistanceConfirmed=true;
+      }
+    });
+
+    s.timedDistancesValidated=true;
+
+    const copy=JSON.parse(JSON.stringify(s));
+    const idx=c.history.findIndex(x=>x.id===s.id);
+    if(idx>=0)c.history[idx]=copy;
+    else c.history.unshift(copy);
+
+    c.activeSession=null;
+    c.setup.sessionName="";
+    save();
+    location.hash=`#/setup/${c.id}`;
     return;
   }
 
