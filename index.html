@@ -1298,6 +1298,16 @@ dialog select{
 
 
 
+
+.timed-current-title{
+  margin:8px 0 6px;
+  font-size:12px;
+  font-weight:900;
+}
+.timed-grade-linear-editor{
+  max-width:620px;
+}
+
 </style>
 </head>
 <body>
@@ -1457,7 +1467,10 @@ function normalizeTimedGradeTables(v){
       if(!Array.isArray(candidate)||candidate.length!==TIMED_GRADES.length)continue;
       const rows=TIMED_GRADES.map((grade,i)=>{
         const d=Number(candidate[i]?.[0]);
-        return [Number.isFinite(d)&&d>0?d:out[level][sex][i][0],grade];
+        const validThreshold=grade===3
+          ? Number.isFinite(d)&&d>=0
+          : Number.isFinite(d)&&d>0;
+        return [validThreshold?d:out[level][sex][i][0],grade];
       });
       const valid=rows.every((r,i)=>i===0||r[0]<rows[i-1][0]);
       if(valid)out[level][sex]=rows;
@@ -1497,20 +1510,28 @@ function timedGradeEndpoints(table,sex){
 
   const row35=rows.find(r=>Number(r[1])===3.5);
   const row6=rows.find(r=>Number(r[1])===6);
+  const row3=rows.find(r=>Number(r[1])===3);
+
+  const distance3=Number(row35?.[0]);
+  const min6=Number(row6?.[0]);
 
   return {
-    distance3:Number(row35?.[0]||0),
-    min6:Number(row6?.[0]||0)
+    distance3:Number.isFinite(distance3)&&distance3>0
+      ? distance3
+      : Math.max(1,Number(row3?.[0])||0),
+    min6:Number.isFinite(min6)&&min6>0
+      ? min6
+      : 0
   };
 }
 
 function legacyTimedGradeEndpoints(table,sex){
   const rows=table?.[sex]||[];
   const row3=rows.find(r=>Number(r[1])===3);
-  const row6=rows.find(r=>Number(r[1])===6);
+  const row55=rows.find(r=>Number(r[1])===5.5);
   return {
     distance3:Number(row3?.[0]||0),
-    min6:Number(row6?.[0]||0)
+    min6:Number(row55?.[0]||0)
   };
 }
 
@@ -1576,6 +1597,7 @@ function timedGradeEditorHtml(table,cid,scope="setup"){
   const f=timedGradeEndpoints(table,"F");
 
   return `<div class="timed-grade-linear-editor">
+    <div class="timed-current-title">Valeurs de référence</div>
     <table class="timed-grade-table timed-grade-endpoints">
       <thead>
         <tr><th></th><th>Garçons</th><th>Filles</th></tr>
@@ -1598,11 +1620,11 @@ function timedGradeEditorHtml(table,cid,scope="setup"){
 
     <div class="timed-grade-previews">
       <div>
-        <b>Garçons — aperçu</b>
+        <b>Garçons</b>
         <div data-timed-preview="${scope}" data-sex="H">${timedGradePreviewHtml(h.distance3,h.min6)}</div>
       </div>
       <div>
-        <b>Filles — aperçu</b>
+        <b>Filles</b>
         <div data-timed-preview="${scope}" data-sex="F">${timedGradePreviewHtml(f.distance3,f.min6)}</div>
       </div>
     </div>
@@ -1674,11 +1696,11 @@ function timedGradeEditorHtml(table,cid,scope="setup"){
 
     <div class="timed-grade-previews">
       <div>
-        <b>Garçons — aperçu</b>
+        <b>Garçons</b>
         <div data-timed-preview="${scope}" data-sex="H">${timedGradePreviewHtml(h.distance3,h.distance6)}</div>
       </div>
       <div>
-        <b>Filles — aperçu</b>
+        <b>Filles</b>
         <div data-timed-preview="${scope}" data-sex="F">${timedGradePreviewHtml(f.distance3,f.distance6)}</div>
       </div>
     </div>
@@ -1717,11 +1739,22 @@ function normClass(c){
   if(!setup.lapDistanceM||Number(setup.lapDistanceM)<=0)setup.lapDistanceM=400;
   setup.scoringThresholds=normalizeScoringThresholds(setup.scoringThresholds);
   setup.timedGradeTables=normalizeTimedGradeTables(setup.timedGradeTables);
-  if(setup.timedGradeModel!=="bands_3_6_v63"){
+  if(setup.timedGradeModel!=="bands_3_6_v65"){
     for(const level of ["9","10"]){
-      setup.timedGradeTables[level]=migrateTimedGradeLevelTable(setup.timedGradeTables[level]);
+      const current=setup.timedGradeTables[level];
+      const h=timedGradeEndpoints(current,"H");
+      const f=timedGradeEndpoints(current,"F");
+      if(!h.min6||!f.min6){
+        const base=DEFAULT_TIMED_GRADE_TABLES[level];
+        const bh=legacyTimedGradeEndpoints(base,"H");
+        const bf=legacyTimedGradeEndpoints(base,"F");
+        setup.timedGradeTables[level]={
+          H:linearTimedGradeRows(bh.distance3,bh.min6),
+          F:linearTimedGradeRows(bf.distance3,bf.min6)
+        };
+      }
     }
-    setup.timedGradeModel="bands_3_6_v63";
+    setup.timedGradeModel="bands_3_6_v65";
   }
   const history=Array.isArray(c.history)?c.history:[];
   history.forEach(s=>{
@@ -1731,9 +1764,9 @@ function normClass(c){
       const level=String(s.classLevel||"");
       s.timedGradeTable=cloneTimedGradeTables()[level]||null;
     }
-    if(s&&s.mode==="timed"&&s.timedGradeTable&&s.timedGradeModel!=="bands_3_6_v63"){
+    if(s&&s.mode==="timed"&&s.timedGradeTable&&s.timedGradeModel!=="bands_3_6_v65"){
       s.timedGradeTable=migrateTimedGradeLevelTable(s.timedGradeTable);
-      s.timedGradeModel="bands_3_6_v63";
+      s.timedGradeModel="bands_3_6_v65";
     }
     if(s&&s.mode==="timed"&&typeof s.timedDistancesValidated!=="boolean")s.timedDistancesValidated=true;
     if(s&&s.mode==="timed"&&Array.isArray(s.participants)){
@@ -1748,9 +1781,9 @@ function normClass(c){
     const level=String(c.activeSession.classLevel||"");
     c.activeSession.timedGradeTable=cloneTimedGradeTables()[level]||null;
   }
-  if(c.activeSession&&c.activeSession.mode==="timed"&&c.activeSession.timedGradeTable&&c.activeSession.timedGradeModel!=="bands_3_6_v63"){
+  if(c.activeSession&&c.activeSession.mode==="timed"&&c.activeSession.timedGradeTable&&c.activeSession.timedGradeModel!=="bands_3_6_v65"){
     c.activeSession.timedGradeTable=migrateTimedGradeLevelTable(c.activeSession.timedGradeTable);
-    c.activeSession.timedGradeModel="bands_3_6_v63";
+    c.activeSession.timedGradeModel="bands_3_6_v65";
   }
   if(c.activeSession&&c.activeSession.mode==="timed"&&typeof c.activeSession.timedDistancesValidated!=="boolean"){
     c.activeSession.timedDistancesValidated=c.activeSession.status==="finished";
@@ -1838,9 +1871,7 @@ function advancedSettingsHtml(c){
     <div class="advanced-settings-body">
       ${!level
         ?`<p class="scoring-help">Choisis d’abord le niveau 9e ou 10e pour afficher le barème correspondant.</p>`
-        :`<p class="scoring-help"><b>Barème ${level}e</b> — distances minimales pour chaque note.</p>
-          ${timedDefaultGradeReferenceHtml(level)}
-          <div class="timed-edit-title">Modifier le barème</div>
+        :`<p class="scoring-help"><b>Barème ${level}e</b> — modifie uniquement le seuil après 3 et le minimum pour 6. Les autres notes sont calculées automatiquement.</p>
           ${timedGradeEditorHtml(table,c.id,"setup")}
           <div class="advanced-actions" style="gap:8px;flex-wrap:wrap">
             <button class="btn compact" type="button" data-act="resetTimedGradeDraft" data-c="${c.id}">Réinitialiser</button>
@@ -1895,7 +1926,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,timedGradeTable:c.setup.mode==="timed"?JSON.parse(JSON.stringify(c.setup.timedGradeTables?.[c.setup.classLevel]||DEFAULT_TIMED_GRADE_TABLES[c.setup.classLevel])):null,timedGradeModel:c.setup.mode==="timed"?"bands_3_6_v63":null,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,timedGradeTable:c.setup.mode==="timed"?JSON.parse(JSON.stringify(c.setup.timedGradeTables?.[c.setup.classLevel]||DEFAULT_TIMED_GRADE_TABLES[c.setup.classLevel])):null,timedGradeModel:c.setup.mode==="timed"?"bands_3_6_v65":null,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
@@ -2916,7 +2947,7 @@ $("app").addEventListener("click",async e=>{
       return;
     }
     c.setup.timedGradeTables[level]=draft;
-    c.setup.timedGradeModel="bands_3_6_v63";
+    c.setup.timedGradeModel="bands_3_6_v65";
     save();
     const msg=$("timedGradeValidationMsg");
     if(msg){msg.textContent=`Barème ${level}e enregistré pour les prochaines séances Temps imposé.`;msg.className="scoring-validation-msg ok";}
@@ -3065,9 +3096,7 @@ async function editTimedSessionGrade(c,sessionId){
   const table=s.timedGradeTable||cloneTimedGradeTables()[String(s.classLevel)];
   const r=await show(`<form method="dialog">
     <h2>Modifier le barème ${s.classLevel?`${s.classLevel}e`:""}</h2>
-    <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Les temps et distances ne sont pas modifiés.</p>
-    ${timedDefaultGradeReferenceHtml(s.classLevel)}
-    <div class="timed-edit-title">Modifier le barème de cette séance</div>
+    <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Modifie le seuil après 3 et le minimum pour 6 ; les valeurs intermédiaires sont calculées automatiquement.</p>
     ${timedGradeEditorHtml(table,"","session")}
     <div class="row">
       <button value="cancel" class="btn" formnovalidate>Annuler</button>
@@ -3084,8 +3113,8 @@ async function editTimedSessionGrade(c,sessionId){
   }
 
   s.timedGradeTable=draft;
-  s.timedGradeModel="bands_3_6_v63";
-  if(c.activeSession&&c.activeSession.id===s.id){c.activeSession.timedGradeTable=JSON.parse(JSON.stringify(draft));c.activeSession.timedGradeModel="bands_3_6_v63";}
+  s.timedGradeModel="bands_3_6_v65";
+  if(c.activeSession&&c.activeSession.id===s.id){c.activeSession.timedGradeTable=JSON.parse(JSON.stringify(draft));c.activeSession.timedGradeModel="bands_3_6_v65";}
   save();
   render();
 }
