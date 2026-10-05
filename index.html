@@ -1323,6 +1323,41 @@ dialog select{
   }
 }
 
+
+/* ===== Fenêtre barème Temps imposé dans Résultats ===== */
+dialog:has(.timed-grade-dialog-form){
+  width:min(720px,94vw);
+  max-width:94vw;
+  overflow-x:hidden;
+}
+.timed-grade-dialog-form{
+  width:100%;
+  min-width:0;
+}
+.timed-grade-dialog-form .timed-grade-editor{
+  max-width:none;
+  width:100%;
+}
+.timed-grade-dialog-form .timed-grade-sex-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  width:100%;
+  max-width:none;
+}
+.timed-grade-dialog-form .timed-note-distance-table{
+  min-width:0;
+}
+.timed-grade-dialog-form .timed-note-distance-table input{
+  width:min(100%,100px);
+}
+@media(max-width:620px){
+  dialog:has(.timed-grade-dialog-form){
+    width:min(440px,94vw);
+  }
+  .timed-grade-dialog-form .timed-grade-sex-grid{
+    grid-template-columns:1fr;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -2630,7 +2665,7 @@ function timerView(c){
       <div class="race-time" data-time-p="${p.studentId}">${fmt(sessionElapsed(s,p))}</div>
       <div class="race-status">${status}</div>
       ${s.mode==="laps"?`<div class="progress-laps">${p.laps.length}/${maxLaps}</div><div class="lap-mini">${last?`Tour ${last.n}: <b>${fmt(last.lapTimeMs)}</b>`:"Aucun tour"}</div>`:""}${s.mode==="timed"?`<div class="progress-laps">${p.laps.length} tour${p.laps.length>1?"s":""}</div>`:""}${s.mode==="timed"&&finished?`<div class="extra-distance timed-extra-distance">
-        <select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}" ${s.timedDistancesValidated?"disabled":""}>
+        <select data-act="extraDistance" data-c="${c.id}" data-p="${p.studentId}">
           <option value="" ${p.extraDistanceConfirmed?"":"selected"} disabled>Choisir…</option>
           ${[0,50,100,150,200,250,300,350,400,450,500].map(v=>`<option value="${v}" ${p.extraDistanceConfirmed&&Number(p.extraDistanceM||0)===v?"selected":""}>+${v} m</option>`).join("")}
         </select>
@@ -2932,7 +2967,8 @@ $("app").addEventListener("input",e=>{
 $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||route().id);if(!c)return;if(el.dataset.act==="extraDistance"){
   const s=c.activeSession;
   const p=s?.participants.find(x=>x.studentId===el.dataset.p);
-  if(p&&s.mode==="timed"&&!s.timedDistancesValidated){
+
+  if(p&&s.mode==="timed"&&s.status==="finished"){
     p.extraDistanceM=Math.max(0,parseInt(el.value||0,10));
     p.extraDistanceConfirmed=true;
 
@@ -2941,8 +2977,11 @@ $("app").addEventListener("change",e=>{const el=e.target,c=cls(el.dataset.c||rou
     if(allConfirmed){
       s.timedDistancesValidated=true;
 
+      // First completion archives the session.
+      // Any later correction replaces that same archived session immediately.
       const copy=JSON.parse(JSON.stringify(s));
       const idx=c.history.findIndex(x=>x.id===s.id);
+
       if(idx>=0)c.history[idx]=copy;
       else c.history.unshift(copy);
     }
@@ -3008,7 +3047,7 @@ async function editTimedSessionGrade(c,sessionId){
 
   const table=normalizeTimedGradeTable(s.timedGradeTable,s.classLevel);
 
-  const r=await show(`<form method="dialog">
+  const r=await show(`<form method="dialog" class="timed-grade-dialog-form">
     <h2>Modifier le barème ${s.classLevel?`${s.classLevel}e`:""}</h2>
     <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Les temps et distances enregistrés ne sont pas modifiés.</p>
     ${timedGradeEditorHtml(table,"","session")}
