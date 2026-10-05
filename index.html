@@ -1206,6 +1206,48 @@ dialog select{
   font-weight:900;
 }
 
+
+.timed-grade-endpoints td:first-child{
+  min-width:70px;
+}
+.timed-grade-previews{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(180px,1fr));
+  gap:12px;
+  margin-top:12px;
+  max-width:560px;
+}
+.timed-grade-previews>div>b{
+  display:block;
+  margin-bottom:5px;
+  font-size:11px;
+}
+.timed-linear-preview{
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--card);
+}
+.timed-linear-preview>div{
+  display:grid;
+  grid-template-columns:42px 1fr;
+  gap:8px;
+  padding:5px 8px;
+  border-bottom:1px solid var(--line);
+  font-size:11px;
+}
+.timed-linear-preview>div:last-child{
+  border-bottom:0;
+}
+.timed-linear-preview span{
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:560px){
+  .timed-grade-previews{
+    grid-template-columns:1fr;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -1374,61 +1416,125 @@ function normalizeTimedGradeTables(v){
   return out;
 }
 
+
+function linearTimedGradeRows(distance3,distance6){
+  distance3=Number(distance3);
+  distance6=Number(distance6);
+
+  if(!Number.isFinite(distance3)||!Number.isFinite(distance6)||distance3<=0||distance6<=distance3){
+    return null;
+  }
+
+  // Notes: 3, 3.5, 4, 4.5, 5, 5.5, 6 = 6 intervalles égaux.
+  const step=(distance6-distance3)/6;
+  const ascending=[3,3.5,4,4.5,5,5.5,6].map((grade,i)=>[
+    Math.round(distance3+(step*i)),
+    grade
+  ]);
+
+  // Le reste de l'application stocke les seuils du plus haut au plus bas.
+  return ascending.reverse();
+}
+
+function timedGradeEndpoints(table,sex){
+  const rows=table?.[sex]||[];
+  if(!rows.length)return {distance3:0,distance6:0};
+  const row3=rows.find(r=>Number(r[1])===3);
+  const row6=rows.find(r=>Number(r[1])===6);
+  return {
+    distance3:Number(row3?.[0]||0),
+    distance6:Number(row6?.[0]||0)
+  };
+}
+
+function timedGradePreviewHtml(distance3,distance6){
+  const rows=linearTimedGradeRows(distance3,distance6);
+  if(!rows)return `<div class="scoring-preview-error">Aperçu indisponible : la distance pour 6 doit être supérieure à celle pour 3.</div>`;
+
+  const asc=[...rows].reverse();
+  return `<div class="timed-linear-preview">
+    ${asc.map(([d,g],i)=>{
+      if(g===3)return `<div><b>3</b><span>&lt; ${asc[i+1]?.[0]||d} m</span></div>`;
+      if(g===6)return `<div><b>6</b><span>≥ ${d} m</span></div>`;
+      const next=asc[i+1];
+      return `<div><b>${fmtGrade(g)}</b><span>${d}–${Math.max(d,next[0]-1)} m</span></div>`;
+    }).join("")}
+  </div>`;
+}
+
 function timedGrade(distanceM,table,sex){
   const rows=table?.[sex];
-  if(!Array.isArray(rows))return null;
+  if(!Array.isArray(rows)||!rows.length)return null;
   const d=Number(distanceM)||0;
+
   for(const [threshold,grade] of rows){
     if(d>=Number(threshold))return grade;
   }
-  return null;
+
+  return rows[rows.length-1][1];
 }
 
 function fmtGrade(g){
-  if(g==null)return "< 3";
+  if(g==null)return "—";
   return Number.isInteger(g)?String(g):String(g).replace(".",",");
 }
 
 function timedGradeEditorHtml(table,cid,scope="setup"){
-  const h=table?.H||[];
-  const f=table?.F||[];
-  return `<div class="timed-grade-editor">
-    <table class="timed-grade-table">
-      <thead><tr><th>Note</th><th>Garçons</th><th>Filles</th></tr></thead>
+  const h=timedGradeEndpoints(table,"H");
+  const f=timedGradeEndpoints(table,"F");
+
+  return `<div class="timed-grade-linear-editor">
+    <table class="timed-grade-table timed-grade-endpoints">
+      <thead>
+        <tr><th></th><th>Garçons</th><th>Filles</th></tr>
+      </thead>
       <tbody>
-        ${TIMED_GRADES.map((grade,i)=>`<tr>
-          <td><b>${fmtGrade(grade)}</b></td>
-          <td><input type="number" min="1" step="10" value="${Number(h[i]?.[0]||0)}" data-timed-grade="${scope}" data-sex="H" data-i="${i}" ${cid?`data-c="${cid}"`:""}> m</td>
-          <td><input type="number" min="1" step="10" value="${Number(f[i]?.[0]||0)}" data-timed-grade="${scope}" data-sex="F" data-i="${i}" ${cid?`data-c="${cid}"`:""}> m</td>
-        </tr>`).join("")}
+        <tr>
+          <td><b>Note 3</b></td>
+          <td><input type="number" min="1" step="10" value="${h.distance3}" data-timed-endpoint="${scope}" data-sex="H" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
+          <td><input type="number" min="1" step="10" value="${f.distance3}" data-timed-endpoint="${scope}" data-sex="F" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
+        </tr>
+        <tr>
+          <td><b>Note 6</b></td>
+          <td><input type="number" min="1" step="10" value="${h.distance6}" data-timed-endpoint="${scope}" data-sex="H" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
+          <td><input type="number" min="1" step="10" value="${f.distance6}" data-timed-endpoint="${scope}" data-sex="F" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
+        </tr>
       </tbody>
     </table>
+
+    <div class="timed-grade-previews">
+      <div>
+        <b>Garçons — aperçu</b>
+        <div data-timed-preview="${scope}" data-sex="H">${timedGradePreviewHtml(h.distance3,h.distance6)}</div>
+      </div>
+      <div>
+        <b>Filles — aperçu</b>
+        <div data-timed-preview="${scope}" data-sex="F">${timedGradePreviewHtml(f.distance3,f.distance6)}</div>
+      </div>
+    </div>
   </div>`;
 }
-
 function readTimedGradeDraft(root,scope){
-  const table={H:[],F:[]};
+  const table={H:null,F:null};
+
   for(const sex of ["H","F"]){
-    const els=[...root.querySelectorAll(`[data-timed-grade="${scope}"][data-sex="${sex}"]`)];
-    els.sort((a,b)=>Number(a.dataset.i)-Number(b.dataset.i));
-    table[sex]=els.map((el,i)=>[Number(el.value),TIMED_GRADES[i]]);
+    const d3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
+    const d6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
+    table[sex]=linearTimedGradeRows(d3,d6);
   }
+
   return table;
 }
-
 function validTimedGradeTable(table){
-  for(const sex of ["H","F"]){
+  return ["H","F"].every(sex=>{
     const rows=table?.[sex];
-    if(!Array.isArray(rows)||rows.length!==TIMED_GRADES.length)return false;
-    for(let i=0;i<rows.length;i++){
-      const d=Number(rows[i][0]);
-      if(!Number.isFinite(d)||d<=0)return false;
-      if(i>0&&d>=Number(rows[i-1][0]))return false;
-    }
-  }
-  return true;
+    return Array.isArray(rows)&&rows.length===TIMED_GRADES.length&&rows.every((r,i)=>
+      Number.isFinite(Number(r[0])) &&
+      Number(r[0])>0 &&
+      (i===0||Number(r[0])<Number(rows[i-1][0]))
+    );
+  });
 }
-
 
 
 function normStudent(s){return{id:s.id||uid(),first:s.first||"",last:s.last||"",sex:s.sex||"",selected:s.selected!==false}}
@@ -2591,13 +2697,17 @@ $("app").addEventListener("click",async e=>{
     const level=c.setup.classLevel;
     if(!level)return;
     const def=DEFAULT_TIMED_GRADE_TABLES[level];
+
     for(const sex of ["H","F"]){
-      document.querySelectorAll(`[data-timed-grade="setup"][data-sex="${sex}"]`).forEach(el=>{
-        const i=Number(el.dataset.i);
-        el.value=def[sex][i][0];
-        el.classList.remove("invalid-score");
-      });
+      const ep=timedGradeEndpoints(def,sex);
+      const d3=document.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="3"]`);
+      const d6=document.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="6"]`);
+      if(d3)d3.value=ep.distance3;
+      if(d6)d6.value=ep.distance6;
+      const preview=document.querySelector(`[data-timed-preview="setup"][data-sex="${sex}"]`);
+      if(preview)preview.innerHTML=timedGradePreviewHtml(ep.distance3,ep.distance6);
     }
+
     const msg=$("timedGradeValidationMsg");
     if(msg){msg.textContent="Barème par défaut chargé. Clique sur « Valider le barème » pour l’enregistrer.";msg.className="scoring-validation-msg";}
   }
@@ -2606,17 +2716,17 @@ $("app").addEventListener("click",async e=>{
     if(!level)return;
     const root=$("app");
     const draft=readTimedGradeDraft(root,"setup");
-    root.querySelectorAll('[data-timed-grade="setup"]').forEach(el=>el.classList.remove("invalid-score"));
+    root.querySelectorAll('[data-timed-endpoint="setup"]').forEach(el=>el.classList.remove("invalid-score"));
     if(!validTimedGradeTable(draft)){
       for(const sex of ["H","F"]){
-        const els=[...root.querySelectorAll(`[data-timed-grade="setup"][data-sex="${sex}"]`)].sort((a,b)=>Number(a.dataset.i)-Number(b.dataset.i));
-        els.forEach((el,i)=>{
-          const v=Number(el.value);
-          if(!Number.isFinite(v)||v<=0||(i>0&&v>=Number(els[i-1].value)))el.classList.add("invalid-score");
-        });
+        const d3=root.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="3"]`);
+        const d6=root.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="6"]`);
+        const v3=Number(d3?.value),v6=Number(d6?.value);
+        if(!Number.isFinite(v3)||v3<=0)d3?.classList.add("invalid-score");
+        if(!Number.isFinite(v6)||v6<=v3)d6?.classList.add("invalid-score");
       }
       const msg=$("timedGradeValidationMsg");
-      if(msg){msg.textContent="Barème non valide : pour chaque colonne, les distances doivent diminuer à mesure que la note diminue.";msg.className="scoring-validation-msg error";}
+      if(msg){msg.textContent="Barème non valide : pour chaque sexe, la distance de la note 6 doit être supérieure à celle de la note 3.";msg.className="scoring-validation-msg error";}
       return;
     }
     c.setup.timedGradeTables[level]=draft;
@@ -2673,6 +2783,16 @@ $("app").addEventListener("input",e=>{
     const lastEl=document.querySelector('[data-act="scoreLast"][data-c="'+c.id+'"]');
     const preview=$("scoringPreview");
     if(preview)preview.innerHTML=scoringPreviewHtml(Number(firstEl?.value),Number(lastEl?.value));
+  }
+
+  if(el.dataset.timedEndpoint){
+    const scope=el.dataset.timedEndpoint;
+    const sex=el.dataset.sex;
+    const root=scope==="session"?$("dlg"):$("app");
+    const d3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
+    const d6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
+    const preview=root.querySelector(`[data-timed-preview="${scope}"][data-sex="${sex}"]`);
+    if(preview)preview.innerHTML=timedGradePreviewHtml(d3,d6);
   }
 });
 
@@ -2770,7 +2890,7 @@ async function editTimedSessionGrade(c,sessionId){
   const root=$("dlg");
   const draft=readTimedGradeDraft(root,"session");
   if(!validTimedGradeTable(draft)){
-    alert("Barème non valide : pour chaque colonne, les distances doivent diminuer à mesure que la note diminue.");
+    alert("Barème non valide : pour chaque sexe, la distance de la note 6 doit être supérieure à celle de la note 3.");
     return;
   }
 
