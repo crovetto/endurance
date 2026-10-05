@@ -1164,39 +1164,12 @@ dialog select{
 }
 
 
-.timed-grade-editor{
-  overflow-x:auto;
-  max-width:460px;
-}
-.timed-grade-table{
-  width:auto;
-  border-collapse:collapse;
-}
-.timed-grade-table th,
-.timed-grade-table td{
-  padding:6px 12px 6px 0;
-  text-align:left;
-  white-space:nowrap;
-  font-size:12px;
-  border-bottom:1px solid var(--line);
-}
-.timed-grade-table th{
-  color:var(--mut);
-}
-.timed-grade-table input{
-  width:78px;
-  height:32px;
-  border:1px solid var(--line);
-  border-radius:8px;
-  background:var(--card);
-  color:var(--tx);
-  padding:0 7px;
-  font:inherit;
-}
-.timed-grade-table input.invalid-score{
-  border-color:#dc2626!important;
-  outline:2px solid rgba(220,38,38,.12);
-}
+
+
+
+
+
+
 .result-name-score{
   display:inline-block;
   margin-left:8px;
@@ -1207,105 +1180,147 @@ dialog select{
 }
 
 
-.timed-grade-endpoints td:first-child{
-  min-width:70px;
-}
-.timed-grade-previews{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.timed-grade-sex-grid{
   display:grid;
-  grid-template-columns:repeat(2,minmax(180px,1fr));
-  gap:12px;
-  margin-top:12px;
-  max-width:560px;
+  grid-template-columns:repeat(2,minmax(220px,1fr));
+  gap:18px;
+  max-width:650px;
 }
-.timed-grade-previews>div>b{
-  display:block;
-  margin-bottom:5px;
-  font-size:11px;
+.timed-grade-sex-title{
+  font-size:13px;
+  font-weight:900;
+  margin:4px 0 6px;
 }
-.timed-linear-preview{
+.timed-note-distance-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
   border:1px solid var(--line);
-  border-radius:10px;
+  border-radius:12px;
   overflow:hidden;
   background:var(--card);
 }
-.timed-linear-preview>div{
-  display:grid;
-  grid-template-columns:42px 1fr;
-  gap:8px;
-  padding:5px 8px;
+.timed-note-distance-table th,
+.timed-note-distance-table td{
+  padding:7px 10px;
   border-bottom:1px solid var(--line);
-  font-size:11px;
+  text-align:left;
+  font-size:12px;
 }
-.timed-linear-preview>div:last-child{
+.timed-note-distance-table tr:last-child td{
   border-bottom:0;
 }
-.timed-linear-preview span{
+.timed-note-distance-table th{
+  color:var(--mut);
+  font-weight:800;
+}
+.timed-note-distance-table input{
+  width:100px;
+  height:34px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--bg);
+  color:var(--tx);
+  padding:0 8px;
+  font:inherit;
+  font-weight:800;
+}
+.timed-note-distance-table span{
   font-variant-numeric:tabular-nums;
 }
-@media(max-width:560px){
-  .timed-grade-previews{
-    grid-template-columns:1fr;
-  }
+@media(max-width:620px){
+  .timed-grade-sex-grid{grid-template-columns:1fr}
 }
 
 
-.timed-linear-preview.simple>div{
-  grid-template-columns:46px 1fr;
-  padding:4px 8px;
+/* ===== Barème Temps imposé ===== */
+.timed-grade-editor{
+  max-width:680px;
 }
-.timed-linear-preview.simple span{
-  color:var(--mut);
+.timed-grade-sex-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(220px,1fr));
+  gap:18px;
 }
-
-
-.timed-default-reference{
-  margin:10px 0 14px;
-  padding:10px;
+.timed-grade-sex-title{
+  margin:4px 0 6px;
+  font-size:13px;
+  font-weight:900;
+}
+.timed-note-distance-table{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  overflow:hidden;
   border:1px solid var(--line);
-  border-radius:10px;
+  border-radius:12px;
   background:var(--card);
 }
-.timed-default-title{
-  font-size:12px;
-  font-weight:900;
-  margin-bottom:8px;
-}
-.timed-default-scale{
-  border:1px solid var(--line);
-  border-radius:9px;
-  overflow:hidden;
-  background:var(--bg);
-}
-.timed-default-scale>div{
-  display:grid;
-  grid-template-columns:46px 1fr;
-  gap:8px;
-  padding:4px 8px;
+.timed-note-distance-table th,
+.timed-note-distance-table td{
+  padding:7px 10px;
   border-bottom:1px solid var(--line);
-  font-size:11px;
+  text-align:left;
+  font-size:12px;
 }
-.timed-default-scale>div:last-child{
+.timed-note-distance-table tr:last-child td{
   border-bottom:0;
 }
-.timed-default-scale span{
+.timed-note-distance-table th{
   color:var(--mut);
+  font-weight:800;
 }
-.timed-edit-title{
-  margin:12px 0 6px;
-  font-size:12px;
-  font-weight:900;
+.timed-note-distance-table input{
+  width:100px;
+  height:34px;
+  padding:0 8px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  background:var(--bg);
+  color:var(--tx);
+  font:inherit;
+  font-weight:800;
 }
-
-
-
-
-.timed-current-title{
-  margin:8px 0 6px;
-  font-size:12px;
-  font-weight:900;
+.timed-note-distance-table input.invalid-score{
+  border-color:#dc2626!important;
+  outline:2px solid rgba(220,38,38,.12);
 }
-.timed-grade-linear-editor{
-  max-width:620px;
+.timed-note-distance-table span{
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:620px){
+  .timed-grade-sex-grid{
+    grid-template-columns:1fr;
+  }
 }
 
 </style>
@@ -1459,205 +1474,75 @@ function cloneTimedGradeTables(v=DEFAULT_TIMED_GRADE_TABLES){
   return JSON.parse(JSON.stringify(v));
 }
 
-function normalizeTimedGradeTables(v){
-  const out=cloneTimedGradeTables();
-  for(const level of ["9","10"]){
-    for(const sex of ["H","F"]){
-      const candidate=v?.[level]?.[sex];
-      if(!Array.isArray(candidate)||candidate.length!==TIMED_GRADES.length)continue;
-      const rows=TIMED_GRADES.map((grade,i)=>{
-        const d=Number(candidate[i]?.[0]);
-        const validThreshold=grade===3
-          ? Number.isFinite(d)&&d>=0
-          : Number.isFinite(d)&&d>0;
-        return [validThreshold?d:out[level][sex][i][0],grade];
-      });
-      const valid=rows.every((r,i)=>i===0||r[0]<rows[i-1][0]);
-      if(valid)out[level][sex]=rows;
-    }
-  }
-  return out;
-}
+function linearTimedGradeRows(note3,note6){
+  note3=Number(note3);
+  note6=Number(note6);
 
-
-function linearTimedGradeRows(distance3,min6){
-  distance3=Number(distance3);
-  min6=Number(min6);
-
-  if(!Number.isFinite(distance3)||!Number.isFinite(min6)||distance3<=0||min6<=distance3){
+  if(!Number.isFinite(note3)||!Number.isFinite(note6)||note3<=0||note6<=note3){
     return null;
   }
 
-  // Seuil après 3 = début de la note 3,5.
-  // Minimum pour 6 = début de la note 6.
-  // Les seuils 4 / 4,5 / 5 / 5,5 sont répartis linéairement entre les deux.
-  const step=(min6-distance3)/5;
+  const step=(note6-note3)/6;
 
   return [
-    [Math.round(min6),6],
-    [Math.round(distance3+4*step),5.5],
-    [Math.round(distance3+3*step),5],
-    [Math.round(distance3+2*step),4.5],
-    [Math.round(distance3+1*step),4],
-    [Math.round(distance3),3.5],
-    [0,3]
+    [Math.round(note6),6],
+    [Math.round(note3+5*step),5.5],
+    [Math.round(note3+4*step),5],
+    [Math.round(note3+3*step),4.5],
+    [Math.round(note3+2*step),4],
+    [Math.round(note3+step),3.5],
+    [Math.round(note3),3]
   ];
 }
 
 function timedGradeEndpoints(table,sex){
   const rows=table?.[sex]||[];
-  if(!rows.length)return {distance3:0,min6:0};
-
-  const row35=rows.find(r=>Number(r[1])===3.5);
+  const row3=rows.find(r=>Number(r[1])===3);
   const row6=rows.find(r=>Number(r[1])===6);
-  const row3=rows.find(r=>Number(r[1])===3);
-
-  const distance3=Number(row35?.[0]);
-  const min6=Number(row6?.[0]);
 
   return {
-    distance3:Number.isFinite(distance3)&&distance3>0
-      ? distance3
-      : Math.max(1,Number(row3?.[0])||0),
-    min6:Number.isFinite(min6)&&min6>0
-      ? min6
-      : 0
+    note3:Number(row3?.[0]||0),
+    note6:Number(row6?.[0]||0)
   };
 }
 
-function legacyTimedGradeEndpoints(table,sex){
-  const rows=table?.[sex]||[];
-  const row3=rows.find(r=>Number(r[1])===3);
-  const row55=rows.find(r=>Number(r[1])===5.5);
-  return {
-    distance3:Number(row3?.[0]||0),
-    min6:Number(row55?.[0]||0)
-  };
-}
-
-function migrateTimedGradeLevelTable(table){
-  if(!table)return table;
-  const out={};
-  for(const sex of ["H","F"]){
-    const ep=legacyTimedGradeEndpoints(table,sex);
-    out[sex]=linearTimedGradeRows(ep.distance3,ep.min6) || table[sex];
-  }
-  return out;
-}
-
-function timedGradePreviewHtml(distance3,min6){
-  const rows=linearTimedGradeRows(distance3,min6);
-  if(!rows)return `<div class="scoring-preview-error">Aperçu indisponible : le minimum pour 6 doit être supérieur au seuil après 3.</div>`;
-
-  const thresholds={};
-  rows.forEach(([d,g])=>thresholds[g]=d);
-
-  return `<div class="timed-linear-preview simple">
-    <div><b>3</b><span>&lt; ${thresholds[3.5]} m</span></div>
-    <div><b>3,5</b><span>dès ${thresholds[3.5]} m</span></div>
-    <div><b>4</b><span>dès ${thresholds[4]} m</span></div>
-    <div><b>4,5</b><span>dès ${thresholds[4.5]} m</span></div>
-    <div><b>5</b><span>dès ${thresholds[5]} m</span></div>
-    <div><b>5,5</b><span>dès ${thresholds[5.5]} m</span></div>
-    <div><b>6</b><span>dès ${thresholds[6]} m</span></div>
-  </div>`;
-}
-
-function timedDefaultGradeReferenceHtml(level){
+function defaultTimedGradeTable(level){
   const base=DEFAULT_TIMED_GRADE_TABLES[String(level)];
-  if(!base)return "";
-
-  const renderSex=(sex)=>{
-    const rows=base[sex]||[];
-    const byGrade={};
-    rows.forEach(([d,g])=>byGrade[g]=Number(d));
-
-    return `<div class="timed-default-scale">
-      <div><b>3</b><span>&lt; ${byGrade[3]} m</span></div>
-      <div><b>3,5</b><span>dès ${byGrade[3]} m</span></div>
-      <div><b>4</b><span>dès ${byGrade[3.5]} m</span></div>
-      <div><b>4,5</b><span>dès ${byGrade[4]} m</span></div>
-      <div><b>5</b><span>dès ${byGrade[4.5]} m</span></div>
-      <div><b>5,5</b><span>dès ${byGrade[5]} m</span></div>
-      <div><b>6</b><span>dès ${byGrade[5.5]} m</span></div>
-    </div>`;
-  };
-
-  return `<div class="timed-default-reference">
-    <div class="timed-default-title">Barème par défaut ${level}e</div>
-    <div class="timed-grade-previews">
-      <div><b>Garçons</b>${renderSex("H")}</div>
-      <div><b>Filles</b>${renderSex("F")}</div>
-    </div>
-  </div>`;
+  return base?JSON.parse(JSON.stringify(base)):null;
 }
 
-function timedGradeEditorHtml(table,cid,scope="setup"){
+function normalizeTimedGradeTable(table,level){
+  const fallback=defaultTimedGradeTable(level);
+  if(!fallback)return null;
+
+  if(!table||!Array.isArray(table.H)||!Array.isArray(table.F)){
+    return fallback;
+  }
+
   const h=timedGradeEndpoints(table,"H");
   const f=timedGradeEndpoints(table,"F");
 
-  return `<div class="timed-grade-linear-editor">
-    <div class="timed-current-title">Valeurs de référence</div>
-    <table class="timed-grade-table timed-grade-endpoints">
-      <thead>
-        <tr><th></th><th>Garçons</th><th>Filles</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><b>Seuil après 3</b></td>
-          <td><input type="number" min="1" step="10" value="${h.distance3}" data-timed-endpoint="${scope}" data-sex="H" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
-          <td><input type="number" min="1" step="10" value="${f.distance3}" data-timed-endpoint="${scope}" data-sex="F" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
-        </tr>
-        <tr>
-          <td><b>Minimum pour 6</b></td>
-          <td><input type="number" min="1" step="10" value="${h.min6}" data-timed-endpoint="${scope}" data-sex="H" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
-          <td><input type="number" min="1" step="10" value="${f.min6}" data-timed-endpoint="${scope}" data-sex="F" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
-        </tr>
-      </tbody>
-    </table>
+  const H=linearTimedGradeRows(h.note3,h.note6);
+  const F=linearTimedGradeRows(f.note3,f.note6);
 
-    <p class="scoring-help">Le seuil après 3 indique à partir de quelle distance la note passe à 3,5. Les seuils 4 à 5,5 sont calculés automatiquement jusqu’au minimum pour 6.</p>
-
-    <div class="timed-grade-previews">
-      <div>
-        <b>Garçons</b>
-        <div data-timed-preview="${scope}" data-sex="H">${timedGradePreviewHtml(h.distance3,h.min6)}</div>
-      </div>
-      <div>
-        <b>Filles</b>
-        <div data-timed-preview="${scope}" data-sex="F">${timedGradePreviewHtml(f.distance3,f.min6)}</div>
-      </div>
-    </div>
-  </div>`;
+  return H&&F?{H,F}:fallback;
 }
 
-function readTimedGradeDraft(root,scope){
-  const table={H:null,F:null};
-
-  for(const sex of ["H","F"]){
-    const d3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
-    const d6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
-    table[sex]=linearTimedGradeRows(d3,d6);
-  }
-
-  return table;
-}
-
-function validTimedGradeTable(table){
-  return ["H","F"].every(sex=>{
-    const rows=table?.[sex];
-    return Array.isArray(rows)&&rows.length===TIMED_GRADES.length&&rows.every((r,i)=>
-      Number.isFinite(Number(r[0])) &&
-      Number(r[0])>=0 &&
-      (i===0||Number(r[0])<Number(rows[i-1][0]))
-    );
-  });
+function normalizeTimedGradeTables(v){
+  return {
+    "9":normalizeTimedGradeTable(v?.["9"],"9"),
+    "10":normalizeTimedGradeTable(v?.["10"],"10")
+  };
 }
 
 function timedGrade(distanceM,table,sex){
   const rows=table?.[sex];
   if(!Array.isArray(rows)||!rows.length)return null;
+
   const d=Math.max(0,Number(distanceM)||0);
+
+  // Below the distance attached to note 3, keep the minimum note 3.
+  if(d<Number(rows[rows.length-1][0]))return 3;
 
   for(const [threshold,grade] of rows){
     if(d>=Number(threshold))return grade;
@@ -1671,61 +1556,90 @@ function fmtGrade(g){
   return Number.isInteger(g)?String(g):String(g).replace(".",",");
 }
 
+function timedGradeTableHtml(table,sex,cid,scope){
+  const rows=[...(table?.[sex]||[])].reverse();
+
+  return `<table class="timed-note-distance-table">
+    <thead>
+      <tr>
+        <th>Note</th>
+        <th>Distance (m)</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(([distance,grade])=>{
+        const editable=grade===3||grade===6;
+
+        return `<tr>
+          <td><b>${fmtGrade(grade)}</b></td>
+          <td>
+            ${editable
+              ?`<input type="number" min="1" step="10" value="${distance}" data-timed-endpoint="${scope}" data-sex="${sex}" data-grade="${grade}" ${cid?`data-c="${cid}"`:""}>`
+              :`<span data-timed-derived="${scope}" data-sex="${sex}" data-grade="${grade}">${distance}</span>`}
+          </td>
+        </tr>`;
+      }).join("")}
+    </tbody>
+  </table>`;
+}
+
 function timedGradeEditorHtml(table,cid,scope="setup"){
-  const h=timedGradeEndpoints(table,"H");
-  const f=timedGradeEndpoints(table,"F");
-
-  return `<div class="timed-grade-linear-editor">
-    <table class="timed-grade-table timed-grade-endpoints">
-      <thead>
-        <tr><th></th><th>Garçons</th><th>Filles</th></tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><b>Seuil après 3</b></td>
-          <td><input type="number" min="1" step="10" value="${h.distance3}" data-timed-endpoint="${scope}" data-sex="H" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
-          <td><input type="number" min="1" step="10" value="${f.distance3}" data-timed-endpoint="${scope}" data-sex="F" data-grade="3" ${cid?`data-c="${cid}"`:""}> m</td>
-        </tr>
-        <tr>
-          <td><b>Minimum pour 6</b></td>
-          <td><input type="number" min="1" step="10" value="${h.min6}" data-timed-endpoint="${scope}" data-sex="H" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
-          <td><input type="number" min="1" step="10" value="${f.min6}" data-timed-endpoint="${scope}" data-sex="F" data-grade="6" ${cid?`data-c="${cid}"`:""}> m</td>
-        </tr>
-      </tbody>
-    </table>
-
-    <div class="timed-grade-previews">
+  return `<div class="timed-grade-editor">
+    <div class="timed-grade-sex-grid">
       <div>
-        <b>Garçons</b>
-        <div data-timed-preview="${scope}" data-sex="H">${timedGradePreviewHtml(h.distance3,h.min6)}</div>
+        <div class="timed-grade-sex-title">Garçons</div>
+        ${timedGradeTableHtml(table,"H",cid,scope)}
       </div>
       <div>
-        <b>Filles</b>
-        <div data-timed-preview="${scope}" data-sex="F">${timedGradePreviewHtml(f.distance3,f.min6)}</div>
+        <div class="timed-grade-sex-title">Filles</div>
+        ${timedGradeTableHtml(table,"F",cid,scope)}
       </div>
     </div>
+    <p class="scoring-help">Modifie uniquement les distances des notes 3 et 6. Les distances intermédiaires sont recalculées automatiquement.</p>
   </div>`;
 }
+
 function readTimedGradeDraft(root,scope){
   const table={H:null,F:null};
 
   for(const sex of ["H","F"]){
-    const d3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
-    const d6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
-    table[sex]=linearTimedGradeRows(d3,d6);
+    const note3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
+    const note6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
+    table[sex]=linearTimedGradeRows(note3,note6);
   }
 
   return table;
 }
+
 function validTimedGradeTable(table){
   return ["H","F"].every(sex=>{
     const rows=table?.[sex];
-    return Array.isArray(rows)&&rows.length===TIMED_GRADES.length&&rows.every((r,i)=>
-      Number.isFinite(Number(r[0])) &&
-      Number(r[0])>=0 &&
-      (i===0||Number(r[0])<Number(rows[i-1][0]))
-    );
+
+    return Array.isArray(rows)
+      && rows.length===TIMED_GRADES.length
+      && rows.every((r,i)=>
+        Number.isFinite(Number(r[0]))
+        && Number(r[0])>0
+        && (i===0||Number(r[0])<Number(rows[i-1][0]))
+      );
   });
+}
+
+function refreshTimedGradeDerived(root,scope,sex){
+  const note3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
+  const note6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
+  const rows=linearTimedGradeRows(note3,note6);
+
+  if(!rows)return false;
+
+  for(const [distance,grade] of rows){
+    if(grade===3||grade===6)continue;
+
+    const el=root.querySelector(`[data-timed-derived="${scope}"][data-sex="${sex}"][data-grade="${grade}"]`);
+    if(el)el.textContent=distance;
+  }
+
+  return true;
 }
 
 
@@ -1739,34 +1653,12 @@ function normClass(c){
   if(!setup.lapDistanceM||Number(setup.lapDistanceM)<=0)setup.lapDistanceM=400;
   setup.scoringThresholds=normalizeScoringThresholds(setup.scoringThresholds);
   setup.timedGradeTables=normalizeTimedGradeTables(setup.timedGradeTables);
-  if(setup.timedGradeModel!=="bands_3_6_v66"){
-    for(const level of ["9","10"]){
-      const current=setup.timedGradeTables[level];
-      const h=timedGradeEndpoints(current,"H");
-      const f=timedGradeEndpoints(current,"F");
-      if(!h.min6||!f.min6){
-        const base=DEFAULT_TIMED_GRADE_TABLES[level];
-        const bh=legacyTimedGradeEndpoints(base,"H");
-        const bf=legacyTimedGradeEndpoints(base,"F");
-        setup.timedGradeTables[level]={
-          H:linearTimedGradeRows(bh.distance3,bh.min6),
-          F:linearTimedGradeRows(bf.distance3,bf.min6)
-        };
-      }
-    }
-    setup.timedGradeModel="bands_3_6_v66";
-  }
   const history=Array.isArray(c.history)?c.history:[];
   history.forEach(s=>{
     if(s&&(s.mode==="laps"||s.mode==="timed")&&(!s.lapDistanceM||Number(s.lapDistanceM)<=0))s.lapDistanceM=400;
     if(s&&s.mode==="laps")s.scoringThresholds=normalizeScoringThresholds(s.scoringThresholds);
-    if(s&&s.mode==="timed"&&!s.timedGradeTable){
-      const level=String(s.classLevel||"");
-      s.timedGradeTable=cloneTimedGradeTables()[level]||null;
-    }
-    if(s&&s.mode==="timed"&&s.timedGradeTable&&s.timedGradeModel!=="bands_3_6_v66"){
-      s.timedGradeTable=migrateTimedGradeLevelTable(s.timedGradeTable);
-      s.timedGradeModel="bands_3_6_v66";
+    if(s&&s.mode==="timed"){
+      s.timedGradeTable=normalizeTimedGradeTable(s.timedGradeTable,s.classLevel);
     }
     if(s&&s.mode==="timed"&&typeof s.timedDistancesValidated!=="boolean")s.timedDistancesValidated=true;
     if(s&&s.mode==="timed"&&Array.isArray(s.participants)){
@@ -1777,13 +1669,8 @@ function normClass(c){
   });
   if(c.activeSession&&(c.activeSession.mode==="laps"||c.activeSession.mode==="timed")&&(!c.activeSession.lapDistanceM||Number(c.activeSession.lapDistanceM)<=0))c.activeSession.lapDistanceM=400;
   if(c.activeSession&&c.activeSession.mode==="laps")c.activeSession.scoringThresholds=normalizeScoringThresholds(c.activeSession.scoringThresholds);
-  if(c.activeSession&&c.activeSession.mode==="timed"&&!c.activeSession.timedGradeTable){
-    const level=String(c.activeSession.classLevel||"");
-    c.activeSession.timedGradeTable=cloneTimedGradeTables()[level]||null;
-  }
-  if(c.activeSession&&c.activeSession.mode==="timed"&&c.activeSession.timedGradeTable&&c.activeSession.timedGradeModel!=="bands_3_6_v66"){
-    c.activeSession.timedGradeTable=migrateTimedGradeLevelTable(c.activeSession.timedGradeTable);
-    c.activeSession.timedGradeModel="bands_3_6_v66";
+  if(c.activeSession&&c.activeSession.mode==="timed"){
+    c.activeSession.timedGradeTable=normalizeTimedGradeTable(c.activeSession.timedGradeTable,c.activeSession.classLevel);
   }
   if(c.activeSession&&c.activeSession.mode==="timed"&&typeof c.activeSession.timedDistancesValidated!=="boolean"){
     c.activeSession.timedDistancesValidated=c.activeSession.status==="finished";
@@ -1871,7 +1758,7 @@ function advancedSettingsHtml(c){
     <div class="advanced-settings-body">
       ${!level
         ?`<p class="scoring-help">Choisis d’abord le niveau 9e ou 10e pour afficher le barème correspondant.</p>`
-        :`<p class="scoring-help"><b>Barème ${level}e</b> — modifie uniquement le seuil après 3 et le minimum pour 6. Les autres notes sont calculées automatiquement.</p>
+        :`<p class="scoring-help"><b>Barème ${level}e</b></p>
           ${timedGradeEditorHtml(table,c.id,"setup")}
           <div class="advanced-actions" style="gap:8px;flex-wrap:wrap">
             <button class="btn compact" type="button" data-act="resetTimedGradeDraft" data-c="${c.id}">Réinitialiser</button>
@@ -1926,7 +1813,7 @@ function makeSession(c){
   const selected=c.students.filter(s=>s.selected!==false);
   if(!selected.length){alert("Sélectionne au moins un élève.");return null}
   const now=Date.now();
-  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,timedGradeTable:c.setup.mode==="timed"?JSON.parse(JSON.stringify(c.setup.timedGradeTables?.[c.setup.classLevel]||DEFAULT_TIMED_GRADE_TABLES[c.setup.classLevel])):null,timedGradeModel:c.setup.mode==="timed"?"bands_3_6_v66":null,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
+  c.activeSession={id:uid(),createdAt:now,startedAt:null,finishedAt:null,status:"ready",name:(c.setup.sessionName||"").trim(),mode:c.setup.mode,classLevel:c.setup.classLevel,timedGradeTable:c.setup.mode==="timed"?JSON.parse(JSON.stringify(c.setup.timedGradeTables?.[c.setup.classLevel]||DEFAULT_TIMED_GRADE_TABLES[c.setup.classLevel])):null,distance:c.setup.distance,distanceUnit:c.setup.distanceUnit,lapDistanceM:Math.max(1,Number(c.setup.lapDistanceM)||400),maxLaps:Math.max(1,parseInt(c.setup.maxLaps||1,10)),durationMin:Math.max(1,parseInt(c.setup.durationMin||12,10)),scoringThresholds:normalizeScoringThresholds(c.setup.scoringThresholds),timedDistancesValidated:false,pauseStartedAt:null,pauseTotalMs:0,participants:selected.map(s=>({studentId:s.id,first:s.first,last:s.last,sex:s.sex||"",startedAt:null,finishedAt:null,elapsedMs:0,laps:[],lastLapAt:null,extraDistanceM:0,extraDistanceConfirmed:false,pauseStartedAt:null,pauseTotalMs:0}))};
   save(); return c.activeSession;
 }
 function sessionElapsed(s,p){
@@ -2913,44 +2800,62 @@ $("app").addEventListener("click",async e=>{
   else if(act==="resetTimedGradeDraft"){
     const level=c.setup.classLevel;
     if(!level)return;
+
     const def=DEFAULT_TIMED_GRADE_TABLES[level];
 
     for(const sex of ["H","F"]){
-      const ep=legacyTimedGradeEndpoints(def,sex);
+      const ep=timedGradeEndpoints(def,sex);
       const d3=document.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="3"]`);
       const d6=document.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="6"]`);
-      if(d3)d3.value=ep.distance3;
-      if(d6)d6.value=ep.min6;
-      const preview=document.querySelector(`[data-timed-preview="setup"][data-sex="${sex}"]`);
-      if(preview)preview.innerHTML=timedGradePreviewHtml(ep.distance3,ep.min6);
+
+      if(d3)d3.value=ep.note3;
+      if(d6)d6.value=ep.note6;
+
+      refreshTimedGradeDerived(document,"setup",sex);
     }
 
     const msg=$("timedGradeValidationMsg");
-    if(msg){msg.textContent="Barème par défaut chargé. Clique sur « Valider le barème » pour l’enregistrer.";msg.className="scoring-validation-msg";}
+    if(msg){
+      msg.textContent="Barème par défaut chargé. Clique sur « Valider le barème » pour l’enregistrer.";
+      msg.className="scoring-validation-msg";
+    }
   }
   else if(act==="validateTimedGrade"){
     const level=c.setup.classLevel;
     if(!level)return;
+
     const root=$("app");
     const draft=readTimedGradeDraft(root,"setup");
+
     root.querySelectorAll('[data-timed-endpoint="setup"]').forEach(el=>el.classList.remove("invalid-score"));
+
     if(!validTimedGradeTable(draft)){
       for(const sex of ["H","F"]){
         const d3=root.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="3"]`);
         const d6=root.querySelector(`[data-timed-endpoint="setup"][data-sex="${sex}"][data-grade="6"]`);
-        const v3=Number(d3?.value),v6=Number(d6?.value);
+        const v3=Number(d3?.value);
+        const v6=Number(d6?.value);
+
         if(!Number.isFinite(v3)||v3<=0)d3?.classList.add("invalid-score");
         if(!Number.isFinite(v6)||v6<=v3)d6?.classList.add("invalid-score");
       }
+
       const msg=$("timedGradeValidationMsg");
-      if(msg){msg.textContent="Barème non valide : pour chaque sexe, le minimum pour 6 doit être supérieur au seuil après 3.";msg.className="scoring-validation-msg error";}
+      if(msg){
+        msg.textContent="Barème non valide : pour chaque sexe, la distance de la note 6 doit être supérieure à celle de la note 3.";
+        msg.className="scoring-validation-msg error";
+      }
       return;
     }
+
     c.setup.timedGradeTables[level]=draft;
-    c.setup.timedGradeModel="bands_3_6_v66";
     save();
+
     const msg=$("timedGradeValidationMsg");
-    if(msg){msg.textContent=`Barème ${level}e enregistré pour les prochaines séances Temps imposé.`;msg.className="scoring-validation-msg ok";}
+    if(msg){
+      msg.textContent=`Barème ${level}e enregistré pour les prochaines séances Temps imposé.`;
+      msg.className="scoring-validation-msg ok";
+    }
   }
   else if(act==="prepareSession"){c.setup.sessionName=($("sessionNameInput")?.value||"").trim();c.setup.classLevel=($("classLevelInput")?.value||"");if(!c.setup.classLevel){alert("Choisis d’abord le niveau de la classe : 9e ou 10e.");return;}if(c.setup.mode==="race")c.setup.distance=($("distanceInput")?.value||"").trim();else c.setup.lapDistanceM=Math.max(1,Number($("lapDistanceInput")?.value||c.setup.lapDistanceM||400));if(c.setup.mode==="laps")c.setup.maxLaps=Math.max(1,parseInt($("maxLapsInput")?.value||c.setup.maxLaps||1,10));if(c.setup.mode==="timed")c.setup.durationMin=Math.max(1,parseInt($("durationMinInput")?.value||c.setup.durationMin||12,10));save();if(makeSession(c))location.hash=`#/timer/${c.id}`}
   else if(act==="startAll")startAll(c)
@@ -3007,10 +2912,7 @@ $("app").addEventListener("input",e=>{
     const scope=el.dataset.timedEndpoint;
     const sex=el.dataset.sex;
     const root=scope==="session"?$("dlg"):$("app");
-    const d3=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="3"]`)?.value);
-    const d6=Number(root.querySelector(`[data-timed-endpoint="${scope}"][data-sex="${sex}"][data-grade="6"]`)?.value);
-    const preview=root.querySelector(`[data-timed-preview="${scope}"][data-sex="${sex}"]`);
-    if(preview)preview.innerHTML=timedGradePreviewHtml(d3,d6);
+    refreshTimedGradeDerived(root,scope,sex);
   }
 });
 
@@ -3093,32 +2995,37 @@ async function editTimedSessionGrade(c,sessionId){
   const s=(c.history||[]).find(x=>x.id===sessionId);
   if(!s||s.mode!=="timed")return;
 
-  const table=s.timedGradeTable||cloneTimedGradeTables()[String(s.classLevel)];
+  const table=normalizeTimedGradeTable(s.timedGradeTable,s.classLevel);
+
   const r=await show(`<form method="dialog">
     <h2>Modifier le barème ${s.classLevel?`${s.classLevel}e`:""}</h2>
-    <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Modifie le seuil après 3 et le minimum pour 6 ; les valeurs intermédiaires sont calculées automatiquement.</p>
+    <p class="scoring-help">Ce changement s’applique uniquement à cette séance et recalcule les notes. Les temps et distances enregistrés ne sont pas modifiés.</p>
     ${timedGradeEditorHtml(table,"","session")}
     <div class="row">
       <button value="cancel" class="btn" formnovalidate>Annuler</button>
       <button value="ok" class="btn pri">Appliquer</button>
     </div>
   </form>`);
+
   if(r.v!=="ok")return;
 
   const root=$("dlg");
   const draft=readTimedGradeDraft(root,"session");
+
   if(!validTimedGradeTable(draft)){
-    alert("Barème non valide : pour chaque sexe, le minimum pour 6 doit être supérieur au seuil après 3.");
+    alert("Barème non valide : pour chaque sexe, la distance de la note 6 doit être supérieure à celle de la note 3.");
     return;
   }
 
   s.timedGradeTable=draft;
-  s.timedGradeModel="bands_3_6_v66";
-  if(c.activeSession&&c.activeSession.id===s.id){c.activeSession.timedGradeTable=JSON.parse(JSON.stringify(draft));c.activeSession.timedGradeModel="bands_3_6_v66";}
+
+  if(c.activeSession&&c.activeSession.id===s.id){
+    c.activeSession.timedGradeTable=JSON.parse(JSON.stringify(draft));
+  }
+
   save();
   render();
 }
-
 
 function csvQ(v){v=String(v??"");return/[;"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportSessionCsv(c,s){
