@@ -1575,26 +1575,22 @@ function timedGrade(distanceM,table,sex){
   if(!Array.isArray(rows)||!rows.length)return null;
 
   const d=Math.max(0,Number(distanceM)||0);
-  const asc=[...rows].sort((a,b)=>Number(a[0])-Number(b[0]));
 
-  // La distance affichée en face d'une note est la borne
-  // qui fait passer à la note suivante.
+  // Chaque distance du barème est la distance minimale
+  // nécessaire pour obtenir la note indiquée.
   //
   // Exemple 10CO garçons :
   // <2100 = 3
-  // 2100–2199 = 3,5
-  // 2200–2299 = 4
+  // 2100–2199 = 3
+  // 2200–2299 = 3,5
+  // 2300–2399 = 4
   // ...
-  // >=2600 = 6
-  if(d<Number(asc[0][0]))return 3;
-
-  for(let i=1;i<asc.length;i++){
-    if(d<Number(asc[i][0])){
-      return Number(asc[i][1]);
-    }
+  // >=2700 = 6
+  for(const [threshold,grade] of rows){
+    if(d>=Number(threshold))return grade;
   }
 
-  return 6;
+  return 3;
 }
 
 function fmtGrade(g){
@@ -1641,7 +1637,7 @@ function timedGradeEditorHtml(table,cid,scope="setup"){
         ${timedGradeTableHtml(table,"F",cid,scope)}
       </div>
     </div>
-    <p class="scoring-help">Modifie uniquement les distances des notes 3 et 6. Les distances intermédiaires sont recalculées automatiquement. Chaque distance affichée est la borne à partir de laquelle on passe à la note suivante.</p>
+    <p class="scoring-help">Modifie uniquement les distances des notes 3 et 6. Les distances intermédiaires sont recalculées automatiquement.</p>
   </div>`;
 }
 
