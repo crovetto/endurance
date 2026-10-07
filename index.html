@@ -1503,7 +1503,7 @@ const DEFAULT_TIMED_GRADE_TABLES={
   }
 };
 
-const TIMED_GRADES=[6,5.5,5,4.5,4,3.5,3];
+const TIMED_GRADES=[6,5.5,5,4.5,4,3.5,3,2.5,2,1.5,1];
 
 function cloneTimedGradeTables(v=DEFAULT_TIMED_GRADE_TABLES){
   return JSON.parse(JSON.stringify(v));
@@ -1518,6 +1518,10 @@ function linearTimedGradeRows(note3,note6){
   }
 
   const step=(note6-note3)/6;
+  const note25=Math.round(note3-step);
+  const note2=Math.round(note3-2*step);
+  const note15=Math.max(0,note2-200);
+  const note1=Math.max(0,note15-200);
 
   return [
     [Math.round(note6),6],
@@ -1526,7 +1530,11 @@ function linearTimedGradeRows(note3,note6){
     [Math.round(note3+3*step),4.5],
     [Math.round(note3+2*step),4],
     [Math.round(note3+step),3.5],
-    [Math.round(note3),3]
+    [Math.round(note3),3],
+    [note25,2.5],
+    [note2,2],
+    [note15,1.5],
+    [note1,1]
   ];
 }
 
@@ -1576,21 +1584,14 @@ function timedGrade(distanceM,table,sex){
 
   const d=Math.max(0,Number(distanceM)||0);
 
-  // Chaque distance du barème est la distance minimale
-  // nécessaire pour obtenir la note indiquée.
-  //
-  // Exemple 10CO garçons :
-  // <2100 = 3
-  // 2100–2199 = 3
-  // 2200–2299 = 3,5
-  // 2300–2399 = 4
-  // ...
-  // >=2700 = 6
+  // Chaque distance est la distance minimale pour obtenir la note indiquée.
+  // Le même pas de 0,5 point est prolongé jusqu'à la note 2.
+  // Ensuite : 2 -> 1,5 = -200 m, puis 1,5 -> 1 = -200 m.
   for(const [threshold,grade] of rows){
     if(d>=Number(threshold))return grade;
   }
 
-  return 3;
+  return 1;
 }
 
 function fmtGrade(g){
@@ -1637,7 +1638,7 @@ function timedGradeEditorHtml(table,cid,scope="setup"){
         ${timedGradeTableHtml(table,"F",cid,scope)}
       </div>
     </div>
-    <p class="scoring-help">Modifie uniquement les distances des notes 3 et 6. Les distances intermédiaires sont recalculées automatiquement.</p>
+    <p class="scoring-help">Modifie uniquement les distances des notes 3 et 6. Les notes intermédiaires sont recalculées automatiquement jusqu’à 2 ; puis les seuils de 1,5 et 1 sont espacés de 200 m.</p>
   </div>`;
 }
 
